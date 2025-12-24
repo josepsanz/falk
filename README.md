@@ -9,4 +9,3 @@ Falk was conceived due to the need to save electricity consumption. It aims to b
 ``` bash
 uv sync
 ```
-
