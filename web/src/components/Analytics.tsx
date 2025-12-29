@@ -58,10 +58,10 @@ const generateData = (period: 'Hourly' | 'Daily' | 'Monthly', baseValue: number)
 // Mock Devices (Should ideally be shared context or state)
 const DEVICES = [
     { id: 'all', name: 'Total Consumption' },
-    { id: '1', name: 'Living Room TV' },
-    { id: '2', name: 'Desktop PC' },
-    { id: '3', name: 'Coffee Maker' },
-    { id: '4', name: 'Refrigerator' }
+    { id: '1', name: 'Oficina' },
+    { id: '2', name: 'Termo' },
+    { id: '3', name: 'Nevera Siemens' },
+    { id: '4', name: 'Nevera Daewoo' }
 ];
 
 export const Analytics: React.FC = () => {
