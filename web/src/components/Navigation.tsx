@@ -13,11 +13,11 @@ export const Navigation: React.FC = () => {
                     <span className="text-accent-primary">FALK</span>
                 </div>
 
-                <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-12">
+                <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
                     <button
                         onClick={() => navigate('/')}
                         className={cn(
-                            "btn text-uppercase fw-bold me-3",
+                            "btn text-uppercase fw-bold me-1",
                             location.pathname === '/'
                                 ? "btn-success"
                                 : "btn-outline-success"
@@ -29,7 +29,7 @@ export const Navigation: React.FC = () => {
                     <button
                         onClick={() => navigate('/analytics')}
                         className={cn(
-                            "btn text-uppercase fw-bold ms-3",
+                            "btn text-uppercase fw-bold ms-1",
                             location.pathname === '/analytics'
                                 ? "btn-success"
                                 : "btn-outline-success"

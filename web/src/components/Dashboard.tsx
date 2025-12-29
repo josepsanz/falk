@@ -8,7 +8,7 @@ import { EnergyChart } from './EnergyChart';
 const MOCK_DEVICES: Device[] = [
     {
         id: '1',
-        name: 'Living Room TV',
+        name: 'Oficina',
         ip: '192.168.1.101',
         state: true,
         power: 125.5,
@@ -18,7 +18,7 @@ const MOCK_DEVICES: Device[] = [
     },
     {
         id: '2',
-        name: 'Desktop PC',
+        name: 'Termo',
         ip: '192.168.1.102',
         state: true,
         power: 350.2,
@@ -28,7 +28,7 @@ const MOCK_DEVICES: Device[] = [
     },
     {
         id: '3',
-        name: 'Coffee Maker',
+        name: 'Nevera Siemens',
         ip: '192.168.1.105',
         state: false,
         power: 0.0,
@@ -38,7 +38,7 @@ const MOCK_DEVICES: Device[] = [
     },
     {
         id: '4',
-        name: 'Refrigerator',
+        name: 'Nevera Daewoo',
         ip: '192.168.1.106',
         state: true,
         power: 85.0,
