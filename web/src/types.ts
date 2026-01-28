@@ -6,6 +6,7 @@ export interface Device {
     power: number; // Watts
     voltage: number; // Volts
     current: number; // mA
+    today: number; // kWh
     updatedAt: number;
 }
 

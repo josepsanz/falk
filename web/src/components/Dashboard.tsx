@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Zap, Settings } from 'lucide-react';
 import type { Device } from '../types';
 import { DeviceCard } from './DeviceCard';
 import { EnergyChart } from './EnergyChart';
@@ -14,6 +13,7 @@ const MOCK_DEVICES: Device[] = [
         power: 125.5,
         voltage: 220.1,
         current: 570,
+        today: 1.2,
         updatedAt: Date.now()
     },
     {
@@ -24,6 +24,7 @@ const MOCK_DEVICES: Device[] = [
         power: 350.2,
         voltage: 219.8,
         current: 1590,
+        today: 4.5,
         updatedAt: Date.now()
     },
     {
@@ -34,6 +35,7 @@ const MOCK_DEVICES: Device[] = [
         power: 0.0,
         voltage: 221.0,
         current: 0,
+        today: 0.8,
         updatedAt: Date.now() - 3600000
     },
     {
@@ -44,6 +46,7 @@ const MOCK_DEVICES: Device[] = [
         power: 85.0,
         voltage: 220.5,
         current: 385,
+        today: 1.1,
         updatedAt: Date.now()
     }
 ];
@@ -53,9 +56,20 @@ const generateChartData = () => {
     const now = new Date();
     for (let i = 24; i >= 0; i--) {
         const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+        const hour = time.getHours();
+
+        // Simulate higher usage during day/evening (8am-11pm) and low at night
+        let baseValue = 200;
+        if (hour >= 7 && hour <= 23) {
+            baseValue = 400 + Math.random() * 300; // Active hours
+            if (hour >= 18 && hour <= 21) baseValue += 400; // Evening peak
+        } else {
+            baseValue = 150 + Math.random() * 50; // Night base
+        }
+
         data.push({
             time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            value: Math.floor(Math.random() * (600 - 200) + 200), // Random value between 200W and 600W
+            value: Math.floor(baseValue),
         });
     }
     return data;
@@ -63,79 +77,68 @@ const generateChartData = () => {
 
 const MOCK_CHART_DATA = generateChartData();
 
-
 interface DashboardProps {
     isPage?: boolean;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ isPage = false }) => {
+export const Dashboard: React.FC<DashboardProps> = () => {
     const [devices] = useState<Device[]>(MOCK_DEVICES);
     const totalPower = devices.reduce((acc, dev) => acc + dev.power, 0);
+    const activeCount = devices.filter(d => d.state).length;
 
     return (
-        <>
-            {!isPage && (
-                <header>
-                    <div className="container header-content">
-                        <div className="logo">
-                            <Zap size={28} />
-                            <span>Falk Energy</span>
-                        </div>
-                        <button className="btn btn-ghost">
-                            <Settings size={20} />
-                        </button>
-                    </div>
-                </header>
-            )}
+        <main className="container py-6 flex-1">
+            {/* Overview Section */}
+            <div className="mb-8">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <i className="fa-solid fa-chart-pie text-[#22c55e]"></i>
+                    Overview
+                </h2>
 
-            <main className="container py-8">
-                <div className="mb-8">
-                    <h1>Dashboard</h1>
-                    <p className="text-muted">Real-time home energy monitoring</p>
-                </div>
-
-                {/* Overview Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="card bg-gradient-to-br from-bg-card to-[#06b6d411] border-accent-primary/30">
-                        <div className="card-title text-accent-primary">Total Power Usage</div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-bold text-white">{totalPower.toFixed(1)}</span>
-                            <span className="text-lg text-muted">W</span>
+                <div className="flex flex-col border border-[#27272a] rounded-lg bg-[#09090b]">
+                    {/* Stats List */}
+                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
+                        <div className="text-sm text-[#a1a1aa]">Total Power</div>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-bold text-white">{totalPower.toFixed(0)}</span>
+                            <span className="text-xs text-[#52525b]">W</span>
                         </div>
                     </div>
 
-                    <div className="card">
-                        <div className="card-title">Active Devices</div>
-                        <div className="text-4xl font-bold text-white">
-                            {devices.filter(d => d.state).length}
-                            <span className="text-lg text-muted font-normal ml-2">/ {devices.length}</span>
+                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
+                        <div className="text-sm text-[#a1a1aa]">Active Devices</div>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-bold text-white">{activeCount}</span>
+                            <span className="text-xs text-[#52525b]">/ {devices.length}</span>
                         </div>
                     </div>
 
-                    <div className="card">
-                        <div className="card-title">Est. Cost (Today)</div>
-                        <div className="text-4xl font-bold text-white">
-                            €1.24
+                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
+                        <div className="text-sm text-[#a1a1aa]">Today's Cost</div>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-bold text-white">€1.24</span>
+                        </div>
+                    </div>
+
+                    {/* Integrated Chart */}
+                    <div className="p-4">
+                        <div className="text-xs font-medium text-[#71717a] uppercase tracking-wider mb-4">Power Consumption (24h)</div>
+                        <div className="h-[250px] w-full">
+                            <EnergyChart data={MOCK_CHART_DATA} title="" />
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Charts Section */}
-                <div className="mb-8 h-[400px]">
-                    <EnergyChart data={MOCK_CHART_DATA} title="Power Consumption Trend (24h)" />
-                </div>
-
-                {/* Devices Grid */}
-                <div className="mb-6 flex items-center gap-2">
-                    <h2>Connected Devices</h2>
-                </div>
-
-                <div className="grid-dashboard">
-                    {devices.map(device => (
-                        <DeviceCard key={device.id} device={device} />
-                    ))}
-                </div>
-            </main>
-        </>
+            {/* Devices */}
+            <div style={{ display: 'flex', flexDirection: 'column', marginTop: '15px' }}>
+                <h2>Devices</h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                {devices.map(device => (
+                    <DeviceCard key={device.id} device={device} />
+                ))}
+            </div>
+        </main>
     );
 };
