@@ -6,37 +6,35 @@ export const Navigation: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const navItems = [
+        { path: '/', label: 'Dashboard', icon: 'fa-solid fa-gauge' },
+        { path: '/analytics', label: 'Analytics', icon: 'fa-solid fa-chart-line' },
+    ];
+
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/90 backdrop-blur-md">
-            <div className="container relative flex h-16 items-center">
-                <div className="font-bold text-xl tracking-tight">
-                    <span className="text-accent-primary">FALK</span>
+        <header className="sticky top-0 z-50 w-full border-b border-[#27272a] bg-[#09090b]">
+            <div className="container flex h-16 items-center justify-between">
+                <div className="d-flex align-items-center gap-2 font-bold text-lg tracking-tight">
+                    <span className="text-[#22c55e]">FALK</span>
                 </div>
 
-                <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-                    <button
-                        onClick={() => navigate('/')}
-                        className={cn(
-                            "btn text-uppercase fw-bold me-1",
-                            location.pathname === '/'
-                                ? "btn-success"
-                                : "btn-outline-success"
-                        )}
-                    >
-                        Dashboard
-                    </button>
-
-                    <button
-                        onClick={() => navigate('/analytics')}
-                        className={cn(
-                            "btn text-uppercase fw-bold ms-1",
-                            location.pathname === '/analytics'
-                                ? "btn-success"
-                                : "btn-outline-success"
-                        )}
-                    >
-                        Analytics
-                    </button>
+                <nav className="d-flex align-items-center gap-2">
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                            <button
+                                key={item.path}
+                                onClick={() => navigate(item.path)}
+                                className={cn(
+                                    "btn d-flex align-items-center gap-2",
+                                    isActive ? "btn-success" : "btn-outline-secondary text-light"
+                                )}
+                            >
+                                <i className={item.icon}></i>
+                                {item.label}
+                            </button>
+                        );
+                    })}
                 </nav>
             </div>
         </header>

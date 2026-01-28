@@ -23,3 +23,17 @@ go to [Tuya API Explorer](https://eu.platform.tuya.com/cloud/explorer) to retrie
 
 ![tuya local_key](static/tuya-local_key.png)
 
+## Web
+```bash
+npm run dev
+```
+
+or 
+
+```bash
+npm run build
+npm run preview
+```
+
+
+

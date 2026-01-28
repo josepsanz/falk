@@ -4,24 +4,21 @@ import {
     BarChart, Bar,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Select } from './ui/Select';
 
-// Mock Data Generators
 const generateData = (period: 'Hourly' | 'Daily' | 'Monthly', baseValue: number) => {
     const data = [];
     const now = new Date();
 
     let count = 24;
-    let interval = 3600000; // 1 hour
+    let interval = 3600000;
     let format: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
 
     if (period === 'Daily') {
         count = 30;
-        interval = 86400000; // 1 day
+        interval = 86400000;
         format = { month: 'short', day: 'numeric' };
     } else if (period === 'Monthly') {
         count = 12;
-        // Approximation for monthly generation logic
         format = { month: 'short', year: '2-digit' };
     }
 
@@ -38,12 +35,7 @@ const generateData = (period: 'Hourly' | 'Daily' | 'Monthly', baseValue: number)
             }
         }
 
-        // Energy (kWh) - Aggregate bars
-        // More variability for realism
         const energy = Math.max(0.1, (Math.random() * baseValue * 0.005));
-
-        // Power (W) - Instantaneous curve
-        // Base value +/- 50% random fluctuation
         const power = Math.max(0, Math.floor(baseValue + (Math.random() - 0.5) * (baseValue * 0.5)));
 
         data.push({
@@ -55,7 +47,6 @@ const generateData = (period: 'Hourly' | 'Daily' | 'Monthly', baseValue: number)
     return data;
 };
 
-// Mock Devices (Should ideally be shared context or state)
 const DEVICES = [
     { id: 'all', name: 'Total Consumption' },
     { id: '1', name: 'Oficina' },
@@ -73,142 +64,145 @@ export const Analytics: React.FC = () => {
     const totalEnergy = chartData.reduce((acc, curr) => acc + curr.energy, 0);
 
     return (
-        <div className="container py-8">
-            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1>Analytics</h1>
-                    <p className="text-muted">Historical energy consumption analysis</p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <Select
-                        options={[
-                            { id: 'Hourly', label: 'Hourly' },
-                            { id: 'Daily', label: 'Daily' },
-                            { id: 'Monthly', label: 'Monthly' },
-                        ]}
-                        value={timeRange}
-                        onChange={(value) => setTimeRange(value as any)}
-                        className="w-full sm:w-64"
-                    />
+        <main className="container py-4">
+            {/* Header */}
+            <div className="row mb-4">
+                <div className="col-12">
+                    <h2 className="d-flex align-items-center gap-2">
+                        <i className="fa-solid fa-chart-line text-success"></i>
+                        Analytics
+                    </h2>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                {/* Sidebar / Device Selection */}
-                <div className="lg:col-span-1">
-                    <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Select Device</h3>
-                    <Select
-                        options={DEVICES.map(d => ({ id: d.id, label: d.name }))}
+            {/* Controls */}
+            <div className="row mb-4">
+                <div className="col-md-6 mb-3 mb-md-0">
+                    <label className="form-label text-muted text-uppercase small fw-bold">Device</label>
+                    <select
+                        className="form-select bg-dark text-white border-secondary"
                         value={selectedDevice}
-                        onChange={setSelectedDevice}
-                        className="w-full"
-                    />
+                        onChange={(e) => setSelectedDevice(e.target.value)}
+                    >
+                        {DEVICES.map(d => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                    </select>
                 </div>
+                <div className="col-md-6">
+                    <label className="form-label text-muted text-uppercase small fw-bold">Period</label>
+                    <select
+                        className="form-select bg-dark text-white border-secondary"
+                        value={timeRange}
+                        onChange={(e) => setTimeRange(e.target.value as any)}
+                    >
+                        <option value="Hourly">Hourly</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Monthly">Monthly</option>
+                    </select>
+                </div>
+            </div>
 
-                {/* Main Charts Area */}
-                <div className="lg:col-span-3 space-y-8">
-
-                    {/* 1. Energy Consumption (Bar Chart) */}
-                    <div className="card h-[400px] flex flex-col">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="card-title text-base text-zinc-200">
-                                Energy Consumption (kWh)
-                            </h3>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold text-white">
-                                    {totalEnergy.toFixed(2)} <span className="text-sm font-normal text-muted">kWh</span>
-                                </div>
-                                <div className="text-xs text-muted">Total for period</div>
+            {/* Content Row */}
+            <div className="row">
+                <div className="col-12">
+                    <div className="card mb-4">
+                        <div className="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center">
+                            <span className="text-uppercase small text-muted fw-bold">Total Energy ({timeRange})</span>
+                            <div className="d-flex align-items-baseline gap-1">
+                                <span className="h4 mb-0 fw-bold text-white">{totalEnergy.toFixed(2)}</span>
+                                <span className="small text-muted">kWh</span>
                             </div>
                         </div>
 
-                        <div className="flex-1 w-full min-h-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
-                                    <XAxis
-                                        dataKey="time"
-                                        stroke="#666"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        minTickGap={30}
-                                    />
-                                    <YAxis
-                                        stroke="#666"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                    />
-                                    <Tooltip
-                                        cursor={{ fill: '#333', opacity: 0.2 }}
-                                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fafafa' }}
-                                        itemStyle={{ color: '#22c55e' }}
-                                    />
-                                    <Bar
-                                        dataKey="energy"
-                                        fill="#15803d"
-                                        radius={[4, 4, 0, 0]}
-                                        fillOpacity={0.8}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <div className="card-body">
+                            {/* Energy Chart Section */}
+                            <div className="mb-5">
+                                <h6 className="card-title mb-4">Energy Consumption</h6>
+                                <div style={{ height: '300px', width: '100%' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+                                            <XAxis
+                                                dataKey="time"
+                                                stroke="#666"
+                                                fontSize={11}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                minTickGap={30}
+                                            />
+                                            <YAxis
+                                                stroke="#666"
+                                                fontSize={11}
+                                                tickLine={false}
+                                                axisLine={false}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: '#333', opacity: 0.2 }}
+                                                contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fafafa' }}
+                                                itemStyle={{ color: '#22c55e' }}
+                                            />
+                                            <Bar
+                                                dataKey="energy"
+                                                fill="#15803d"
+                                                radius={[4, 4, 0, 0]}
+                                                fillOpacity={0.8}
+                                            />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            <hr className="border-secondary my-4" />
+
+                            {/* Power Chart Section */}
+                            <div>
+                                <h6 className="card-title mb-4">Power Trend</h6>
+                                <div style={{ height: '300px', width: '100%' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="analyticsPowerGradientBootstrap" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+                                            <XAxis
+                                                dataKey="time"
+                                                stroke="#666"
+                                                fontSize={11}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                minTickGap={30}
+                                            />
+                                            <YAxis
+                                                stroke="#666"
+                                                fontSize={11}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tickFormatter={(val) => `${val}W`}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fafafa' }}
+                                                itemStyle={{ color: '#4ade80' }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="power"
+                                                stroke="#4ade80"
+                                                fillOpacity={1}
+                                                fill="url(#analyticsPowerGradientBootstrap)"
+                                                strokeWidth={2}
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
                         </div>
                     </div>
-
-                    {/* 2. Power Time Series (Area Chart) */}
-                    <div className="card h-[350px] flex flex-col">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="card-title text-base text-zinc-200">
-                                Power Trend (Watts) - Time Series
-                            </h3>
-                        </div>
-
-                        <div className="flex-1 w-full min-h-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorValueAnalyticsPower" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
-                                    <XAxis
-                                        dataKey="time"
-                                        stroke="#666"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        minTickGap={30}
-                                    />
-                                    <YAxis
-                                        stroke="#666"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tickFormatter={(val) => `${val}W`}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fafafa' }}
-                                        itemStyle={{ color: '#4ade80' }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="power"
-                                        stroke="#4ade80"
-                                        fillOpacity={1}
-                                        fill="url(#colorValueAnalyticsPower)"
-                                        strokeWidth={2}
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
                 </div>
             </div>
-        </div>
+        </main>
     );
 };
