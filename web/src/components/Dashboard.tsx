@@ -89,27 +89,29 @@ export const Dashboard: React.FC<DashboardProps> = () => {
     return (
         <main className="container py-6 flex-1">
             {/* Overview Section */}
+
             <div className="mb-8">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <i className="fa-solid fa-chart-pie text-[#22c55e]"></i>
+                <h2 className="text-lg font-semibold mt-3 mb-2 flex items-center gap-2">
+                    <i className="fa-solid fa-crosshairs"></i>
                     Overview
                 </h2>
 
                 <div className="flex flex-col border border-[#27272a] rounded-lg bg-[#09090b]">
                     {/* Stats List */}
-                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
-                        <div className="text-sm text-[#a1a1aa]">Total Power</div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-white">{totalPower.toFixed(0)}</span>
-                            <span className="text-xs text-[#52525b]">W</span>
-                        </div>
-                    </div>
 
                     <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
                         <div className="text-sm text-[#a1a1aa]">Active Devices</div>
                         <div className="flex items-baseline gap-1">
                             <span className="text-xl font-bold text-white">{activeCount}</span>
                             <span className="text-xs text-[#52525b]">/ {devices.length}</span>
+                        </div>
+                    </div>
+
+                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
+                        <div className="text-sm text-[#a1a1aa]">Today's Total Power</div>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-bold text-white">{totalPower.toFixed(0)}</span>
+                            <span className="text-xs text-[#52525b]">W</span>
                         </div>
                     </div>
 
@@ -124,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
                     <div className="p-4">
                         <div className="text-xs font-medium text-[#71717a] uppercase tracking-wider mb-4">Power Consumption (24h)</div>
                         <div className="h-[250px] w-full">
-                            <EnergyChart data={MOCK_CHART_DATA} title="" />
+                            <EnergyChart data={MOCK_CHART_DATA} />
                         </div>
                     </div>
                 </div>

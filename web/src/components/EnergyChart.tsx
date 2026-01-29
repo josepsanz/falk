@@ -17,7 +17,6 @@ interface DataPoint {
 interface EnergyChartProps {
     data: DataPoint[];
     color?: string;
-    title?: string;
 }
 
 export const EnergyChart: React.FC<EnergyChartProps> = ({ data, color = "#22c55e" }) => {
@@ -37,28 +36,36 @@ export const EnergyChart: React.FC<EnergyChartProps> = ({ data, color = "#22c55e
                 >
                     <defs>
                         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                            <stop offset="95%" stopColor={color} stopOpacity={0} />
+                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={color} stopOpacity={0.05} />
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
                     <XAxis
                         dataKey="time"
-                        stroke="#666"
-                        fontSize={12}
+                        stroke="#71717a"
+                        fontSize={11}
                         tickLine={false}
                         axisLine={false}
+                        minTickGap={30}
                     />
                     <YAxis
-                        stroke="#666"
-                        fontSize={12}
+                        stroke="#71717a"
+                        fontSize={11}
                         tickLine={false}
                         axisLine={false}
                         tickFormatter={(value) => `${value}W`}
                     />
                     <Tooltip
-                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fafafa' }}
+                        contentStyle={{
+                            backgroundColor: '#18181b',
+                            borderColor: '#27272a',
+                            color: '#fafafa',
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                        }}
                         itemStyle={{ color: color }}
+                        labelStyle={{ color: '#a1a1aa', marginBottom: '0.25rem' }}
                     />
                     <Area
                         type="monotone"
@@ -67,6 +74,7 @@ export const EnergyChart: React.FC<EnergyChartProps> = ({ data, color = "#22c55e
                         fillOpacity={1}
                         fill={`url(#${gradientId})`}
                         strokeWidth={2}
+                        activeDot={{ r: 4, strokeWidth: 0 }}
                     />
                 </AreaChart>
             </ResponsiveContainer>
