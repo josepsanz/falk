@@ -91,7 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
             {/* Overview Section */}
 
             <div className="mb-8">
-                <h2 className="text-lg font-semibold mt-3 mb-2 flex items-center gap-2">
+                <h2 className="d-flex align-items-center mt-3 mb-2 gap-2">
                     <i className="fa-solid fa-crosshairs"></i>
                     Overview
                 </h2>
