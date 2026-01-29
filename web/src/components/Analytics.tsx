@@ -78,7 +78,7 @@ export const Analytics: React.FC = () => {
             {/* Controls */}
             <div className="row mb-4">
                 <div className="col-md-6 mb-3 mb-md-0">
-                    <label className="form-label text-muted text-uppercase small fw-bold">Device</label>
+                    <label className="form-label text-uppercase small fw-bold" style={{ color: '#22c55e' }}>Device</label>
                     <select
                         className="form-select bg-dark text-white border-secondary"
                         value={selectedDevice}
@@ -90,7 +90,7 @@ export const Analytics: React.FC = () => {
                     </select>
                 </div>
                 <div className="col-md-6">
-                    <label className="form-label text-muted text-uppercase small fw-bold">Period</label>
+                    <label className="form-label text-uppercase small fw-bold" style={{ color: '#22c55e' }}>Period</label>
                     <select
                         className="form-select bg-dark text-white border-secondary"
                         value={timeRange}
@@ -108,7 +108,7 @@ export const Analytics: React.FC = () => {
                 <div className="col-12">
                     <div className="card mb-4">
                         <div className="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center">
-                            <span className="text-uppercase small text-muted fw-bold">Total Energy ({timeRange})</span>
+                            <span className="text-uppercase small fw-bold" style={{ color: '#22c55e' }}>Total Energy ({timeRange})</span>
                             <div className="d-flex align-items-baseline gap-1">
                                 <span className="h4 mb-0 fw-bold text-white">{totalEnergy.toFixed(2)}</span>
                                 <span className="small text-muted">kWh</span>
