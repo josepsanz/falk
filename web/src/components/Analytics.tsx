@@ -66,7 +66,7 @@ export const Analytics: React.FC = () => {
     return (
         <main className="container py-4">
             {/* Header */}
-            <div className="row mb-4">
+            <div className="row mb-2">
                 <div className="col-12">
                     <h2 className="d-flex align-items-center gap-2">
                         <i className="fa-solid fa-chart-line text-success"></i>
