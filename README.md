@@ -25,12 +25,14 @@ go to [Tuya API Explorer](https://eu.platform.tuya.com/cloud/explorer) to retrie
 
 ## Web
 ```bash
+cd web
 npm run dev
 ```
 
 or 
 
 ```bash
+cd web
 npm run build
 npm run preview
 ```
