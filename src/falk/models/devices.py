@@ -1,16 +1,19 @@
 from sqlalchemy import Boolean
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, ForeignKey
+    Column, Integer, String, Float, DateTime, ForeignKey, Index
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-Base = declarative_base()
+from .base import Base
+
 
 class SmartSwitch(Base):
     __tablename__ = "smart_switch"
 
     id = Column(Integer, primary_key=True)
+    device_type = Column(String(50), nullable=False)
+
     brand = Column(String(50), nullable=False)
     model = Column(String(50), nullable=False)
     state = Column(Boolean, nullable=False, default=False)
@@ -19,7 +22,7 @@ class SmartSwitch(Base):
     location = Column(String(50))
 
     __mapper_args__ = {
-        "polymorphic_on": type,
+        "polymorphic_on": device_type,
         "polymorphic_identity": "base"
     }
 
@@ -46,9 +49,8 @@ class TuyaSwitch(SmartSwitch):
     local_key = Column(String(50), nullable=False)
     version = Column(Float, nullable=False)
     
-
     __mapper_args__ = {
-        "polymorphic_identity": "tuya"
+        "polymorphic_identity": "tuya_switch_type"
     }
     
 

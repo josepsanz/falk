@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Power } from 'lucide-react';
 import type { Device } from '../types';
 import { cn } from '../helpers/cn';
@@ -9,10 +9,9 @@ interface DeviceCardProps {
 }
 
 export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onToggle }) => {
-    const [isOn, setIsOn] = useState(device.state);
+    const isOn = device.state;
 
     const handleToggle = () => {
-        setIsOn(!isOn);
         onToggle?.(device.id);
     };
 
@@ -53,9 +52,6 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onToggle }) => {
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '14px', fontWeight: 500, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {device.name}
-                </div>
-                <div style={{ fontSize: '11px', color: '#1f51ff', fontFamily: 'monospace' }}>
-                    {device.ip}
                 </div>
             </div>
 

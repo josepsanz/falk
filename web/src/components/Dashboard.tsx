@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Search } from 'lucide-react';
 import type { Device } from '../types';
 import { DeviceCard } from './DeviceCard';
 import { EnergyChart } from './EnergyChart';
@@ -82,50 +83,56 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = () => {
-    const [devices] = useState<Device[]>(MOCK_DEVICES);
-    const totalPower = devices.reduce((acc, dev) => acc + dev.power, 0);
+    const [devices, setDevices] = useState<Device[]>(MOCK_DEVICES);
+
+    const handleToggleDevice = (id: string) => {
+        setDevices(prev => prev.map(d =>
+            d.id === id ? { ...d, state: !d.state } : d
+        ));
+    };
+
     const activeCount = devices.filter(d => d.state).length;
+    // Calculate power only for active devices
+    const totalPower = devices.filter(d => d.state).reduce((acc, dev) => acc + dev.power, 0);
 
     return (
         <main className="container py-6 flex-1">
             {/* Overview Section */}
 
-            <div className="mb-8">
-                <h2 className="d-flex align-items-center mt-3 mb-2 gap-2">
-                    <i className="fa-solid fa-crosshairs"></i>
+            <div className="mb-6">
+                <h2 className="d-flex align-items-center mt-3 mb-3 gap-2 fs-4">
+                    <Search className="text-success" size={20} />
                     Overview
                 </h2>
 
-                <div className="flex flex-col border border-[#27272a] rounded-lg bg-[#09090b]">
-                    {/* Stats List */}
+                <div className="bg-[#09090b] border border-[#27272a] rounded-[2rem] overflow-hidden">
+                    <div className="row g-0 px-2 py-3">
+                        {/* Stats Row */}
+                        <div className="col-4 px-4 py-2">
+                            <div className="text-[12px] text-[#71717a] uppercase tracking-widest mb-1">Active</div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-3xl font-bold text-white tracking-tight">{activeCount}</span>
+                                <span className="text-sm text-[#52525b]">/ {devices.length}</span>
+                            </div>
+                        </div>
 
-                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
-                        <div className="text-sm text-[#a1a1aa]">Active Devices</div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-white">{activeCount}</span>
-                            <span className="text-xs text-[#52525b]">/ {devices.length}</span>
+                        <div className="col-4 px-4 py-2">
+                            <div className="text-[12px] text-[#71717a] uppercase tracking-widest mb-1">Power</div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-3xl font-bold text-white tracking-tight">{totalPower.toFixed(0)}</span>
+                                <span className="text-sm text-[#52525b]">W</span>
+                            </div>
+                        </div>
+
+                        <div className="col-4 px-4 py-2">
+                            <div className="text-[12px] text-[#71717a] uppercase tracking-widest mb-1">Cost</div>
+                            <div className="text-3xl font-bold text-white tracking-tight">€1.24</div>
                         </div>
                     </div>
 
-                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
-                        <div className="text-sm text-[#a1a1aa]">Today's Total Power</div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-white">{totalPower.toFixed(0)}</span>
-                            <span className="text-xs text-[#52525b]">W</span>
-                        </div>
-                    </div>
-
-                    <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
-                        <div className="text-sm text-[#a1a1aa]">Today's Cost</div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-white">€1.24</span>
-                        </div>
-                    </div>
-
-                    {/* Integrated Chart */}
-                    <div className="p-4">
-                        <div className="text-xs font-medium text-[#71717a] uppercase tracking-wider mb-4">Power Consumption (24h)</div>
-                        <div className="h-[250px] w-full">
+                    {/* Integrated Chart - More compact */}
+                    <div className="p-3 border-t border-[#27272a]">
+                        <div className="h-[180px] w-full">
                             <EnergyChart data={MOCK_CHART_DATA} />
                         </div>
                     </div>
@@ -138,7 +145,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 {devices.map(device => (
-                    <DeviceCard key={device.id} device={device} />
+                    <DeviceCard key={device.id} device={device} onToggle={handleToggleDevice} />
                 ))}
             </div>
         </main>
