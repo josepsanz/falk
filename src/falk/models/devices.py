@@ -13,6 +13,7 @@ class SmartSwitch(Base):
 
     id = Column(Integer, primary_key=True)
     device_type = Column(String(50), nullable=False)
+    enabled = Column(Boolean, nullable=False, default=True)
 
     brand = Column(String(50), nullable=False)
     model = Column(String(50), nullable=False)
