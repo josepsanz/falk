@@ -6,6 +6,7 @@ import tinytuya
 @dataclass
 class Switch:
     id: str
+    name: str
     ip: str
     local_key: str = field(repr=False)
     version: float = field(repr=False)
@@ -42,10 +43,10 @@ class Switch:
             'power': status['22'] / 10,         # Power (W)
             'voltage': status['23'] / 10,       # Voltage (V)
 
-            'unknown-9': status['9'],           # Unknown
-            'unknown-20': status['20'],         # Unknown
-            'unknown-24': status['24'],         # Unknown
-            'unknown-29': status['29'],         # Unknown
+            'unknown-9': status.get('9'),           # Unknown
+            'unknown-20': status.get('20'),         # Unknown
+            'unknown-24': status.get('24'),         # Unknown
+            'unknown-29': status.get('29'),         # Unknown
         }
 
         self.__state = result['state']

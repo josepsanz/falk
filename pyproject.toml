@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "pyyaml>=6.0.3",
     "sqlalchemy>=2.0.46",
     "tinytuya>=1.17.4",
 ]
