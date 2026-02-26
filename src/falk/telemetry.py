@@ -53,12 +53,38 @@ def main():
         devices = yaml.safe_load(fp)
 
     for device in devices['devices']:
-        if device['enable']:
+        if device['enabled']:
             switch = get_device_data(device)
             msg = f"{switch.name:>27}: {switch.current:>6}mA, {switch.power:>6}W, {switch.voltage:>6}V"
             logger.debug(msg)
     
     logger.info('Done!')
+
+def add_device(uri, name, ip, tuya_id, local_key, version):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from falk.models.devices import TuyaSwitch
+
+    engine = create_engine(uri)
+    Session = sessionmaker(engine)
+
+    with Session() as session:    
+        tuya = TuyaSwitch(
+            enabled=True,
+            brand='Tuya',
+            model='Tuya Smart Plug',
+            state=None,
+            name=name,
+            ip=ip,
+            location=None,
+
+            tuya_id=tuya_id,
+            local_key=local_key,
+            version=version
+        )
+        session.add(tuya)
+        session.commit()
 
 if __name__ == "__main__":
     main()
