@@ -23,6 +23,39 @@ go to [Tuya API Explorer](https://eu.platform.tuya.com/cloud/explorer) to retrie
 
 ![tuya local_key](static/tuya-local_key.png)
 
+## Database
+
+### New Database Tables
+New database tables can be created with:
+```bash
+alembic upgrade head
+```
+
+### Database Migrations
+
+Database migrations can be created with:
+```bash
+alembic revision --autogenerate -m "message"
+alembic upgrade head
+```
+
+### Some Database Queries
+```sql
+SELECT 
+    s.name, 
+    sm.current, 
+    sm.voltage, 
+    sm.power, 
+    sm.recorded_at
+FROM 
+    switch_metric sm
+JOIN 
+    smart_switch s ON sm.switch_id = s.id
+ORDER BY 
+    sm.recorded_at DESC
+LIMIT 100;
+```
+
 ## Web
 ```bash
 cd web

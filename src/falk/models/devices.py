@@ -72,10 +72,10 @@ class SwitchMetric(Base):
         ForeignKey("smart_switch.id", ondelete="CASCADE"),
         nullable=False
     )
-    current = Column(Float, nullable=False)
-    voltage = Column(Float, nullable=False)
-    power = Column(Float, nullable=False)
-    recorded_at = Column(DateTime, nullable=False)
+    current = Column(Integer, nullable=False)
+    voltage = Column(Float(precision=2), nullable=False)
+    power = Column(Float(precision=2), nullable=False)
+    recorded_at = Column(DateTime, default=func.now(), nullable=False)
 
     smart_switch = relationship(
         "SmartSwitch",

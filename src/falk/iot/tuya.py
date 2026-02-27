@@ -22,15 +22,15 @@ class Switch:
 
     @property
     def current(self):
-        return self.__current
+        return int(self.__current)
 
     @property
     def power(self):
-        return self.__power
-
+        return round(self.__power, 2)
+        
     @property
     def voltage(self):
-        return self.__voltage
+        return round(self.__voltage, 2)
 
     def refresh(self):
         raw_device = tinytuya.Device(self.id, self.ip, self.local_key, version=self.version)

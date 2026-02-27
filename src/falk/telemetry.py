@@ -2,8 +2,11 @@ import logging
 import argparse
 
 import yaml
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
 
 from falk.iot.tuya import Switch
+from falk.models import devices as db_devices
 
 LOGGER_NAME = 'falk.telemetry'
 logger = logging.getLogger(LOGGER_NAME)
@@ -52,25 +55,37 @@ def main():
     with open(arguments.devices_file, 'r') as fp: 
         devices = yaml.safe_load(fp)
 
-    for device in devices['devices']:
-        if device['enabled']:
-            switch = get_device_data(device)
-            msg = f"{switch.name:>27}: {switch.current:>6}mA, {switch.power:>6}W, {switch.voltage:>6}V"
-            logger.debug(msg)
+    engine = create_engine(devices['database']['uri'])
+    Session = sessionmaker(engine)
+
+    with Session() as session:
+        for device in devices['devices']:
+            if device['enabled']:
+                stmt = select(db_devices.TuyaSwitch.id).where(db_devices.TuyaSwitch.tuya_id == device['id'])
+                db_id = session.scalar(stmt)
+
+                switch = get_device_data(device)
+
+                metric = db_devices.SwitchMetric(
+                    switch_id=db_id,
+                    current=switch.current,
+                    voltage=switch.voltage,
+                    power=switch.power
+                )
+                session.add(metric)
+                session.commit()
+
+                msg = f"{switch.name:>27}: {switch.current:>6}mA, {switch.power:>6}W, {switch.voltage:>6}V"
+                logger.debug(msg)
     
     logger.info('Done!')
 
 def add_device(uri, name, ip, tuya_id, local_key, version):
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    from falk.models.devices import TuyaSwitch
-
     engine = create_engine(uri)
     Session = sessionmaker(engine)
 
     with Session() as session:    
-        tuya = TuyaSwitch(
+        tuya = devices.TuyaSwitch(
             enabled=True,
             brand='Tuya',
             model='Tuya Smart Plug',
