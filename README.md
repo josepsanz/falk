@@ -53,7 +53,12 @@ JOIN
     smart_switch s ON sm.switch_id = s.id
 ORDER BY 
     sm.recorded_at DESC
-LIMIT 100;
+LIMIT 15;
+```
+
+or in a single line:
+```sql
+SELECT s.name, sm.current, sm.voltage, sm.power, sm.recorded_at FROM switch_metric sm JOIN smart_switch s ON sm.switch_id = s.id ORDER BY sm.recorded_at DESC LIMIT 15;
 ```
 
 ## Web

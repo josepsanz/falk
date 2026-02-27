@@ -1,9 +1,10 @@
+import datetime
+
 from sqlalchemy import Boolean
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, ForeignKey, Index
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 
 from .base import Base
 
@@ -75,7 +76,7 @@ class SwitchMetric(Base):
     current = Column(Integer, nullable=False)
     voltage = Column(Float(precision=2), nullable=False)
     power = Column(Float(precision=2), nullable=False)
-    recorded_at = Column(DateTime, default=func.now(), nullable=False)
+    recorded_at = Column(DateTime(timezone=True), default=datetime.datetime.now, nullable=False)
 
     smart_switch = relationship(
         "SmartSwitch",
