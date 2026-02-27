@@ -22,8 +22,7 @@ def set_logger(log_file, level):
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
-
-    
+ 
     logger.setLevel(level)
     logger.addHandler(stream_handler)
     logger.addHandler(file_handler)

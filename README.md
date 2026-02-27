@@ -61,6 +61,20 @@ or in a single line:
 SELECT s.name, sm.current, sm.voltage, sm.power, sm.recorded_at FROM switch_metric sm JOIN smart_switch s ON sm.switch_id = s.id ORDER BY sm.recorded_at DESC LIMIT 15;h
 ```
 
+## Telemetry Cronjob
+```bash
+#!/usr/bin/env bash
+
+cd $HOME/repos/falk
+
+/usr/local/bin/uv run -- python -m falk.telemetry
+```
+
+then in Crontab:
+```bash
+*/5 * * * * sh $HOME/falk-telemetry-cronjob.sh &> /dev/null
+```
+
 ## Web
 ```bash
 cd web
