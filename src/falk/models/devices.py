@@ -50,7 +50,7 @@ class TuyaSwitch(SmartSwitch):
     )
     tuya_id = Column(String(50), nullable=False)
     local_key = Column(String(50), nullable=False)
-    version = Column(Float, nullable=False)
+    version = Column(String(16), nullable=False)
 
     __mapper_args__ = {
         "polymorphic_identity": "tuya_switch_type"
@@ -125,6 +125,8 @@ class ShellyEM(EnergyMeter):
     __mapper_args__ = {
         "polymorphic_identity": "shelly_em_type"
     }
+
+    shelly_id = Column(String(50), nullable=False)
 
 
 class EMMetric(Base):

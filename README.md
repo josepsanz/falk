@@ -35,8 +35,8 @@ alembic upgrade head
 
 Database migrations can be created with:
 ```bash
-alembic revision --autogenerate -m "message"
-alembic upgrade head
+uv run -- alembic revision --autogenerate -m "message"
+uv run -- alembic upgrade head
 ```
 
 ### Some Database Queries
@@ -58,8 +58,22 @@ LIMIT 15;
 
 or in a single line:
 ```sql
-SELECT s.name, sm.current, sm.voltage, sm.power, sm.recorded_at FROM switch_metric sm JOIN smart_switch s ON sm.switch_id = s.id ORDER BY sm.recorded_at DESC LIMIT 15;h
+SELECT s.name, sm.current, sm.voltage, sm.power, sm.recorded_at FROM switch_metric sm JOIN smart_switch s ON sm.switch_id = s.id ORDER BY sm.recorded_at DESC LIMIT 15;
 ```
+
+Query Energy Meter metrics
+```sql
+SELECT * FROM energy_meter JOIN em_metric ON energy_meter.id = em_metric.em_id JOIN energy_phase ON em_metric.id = energy_phase.em_metric_id
+```
+
+### Examples how to add devices
+```python
+from falk import telemetry
+
+telemetry.add_em_device('sqlite:///falk.db', name='Energy Meter SAXI Home', model='Shelly 3EM-63W', ip='192.168.1.132', shelly_id='em:0')
+telemetry.add_switch_device('sqlite:///falk.db', name='TSP004-20A-daewoo', ip='192.168.1.118', tuya_id='*', local_key='*', version='3.5')
+```
+
 
 ## Telemetry Cronjob
 ```bash

@@ -15,6 +15,7 @@ wheels/
 
 # Others
 *.db
+*.db.bck
 devices.json
 devices.yaml
 snapshot.json

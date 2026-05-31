@@ -1,0 +1,92 @@
+# devices.yaml — Falk configuration template
+#
+# This file is the single source of truth for all device and database configuration.
+# Copy it to devices.yaml and fill in the real values before running the telemetry.
+#
+# Usage:
+#   uv run python -m falk.telemetry                          # uses devices.yaml by default
+#   uv run python -m falk.telemetry --devices-file my.yaml  # explicit path
+
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+database:
+  # SQLAlchemy connection URI. Only SQLite is tested; use an absolute path to
+  # avoid ambiguity when running from different working directories.
+  #
+  # Examples:
+  #   sqlite:///falk.db              # relative to the current working dir
+  #   sqlite:////home/user/falk.db   # absolute path (4 slashes)
+  uri: sqlite:///falk.db
+
+
+# ---------------------------------------------------------------------------
+# Devices
+# ---------------------------------------------------------------------------
+# Each entry in the list represents one physical device.
+# Common fields (all device types):
+#
+#   type     - device driver to use; must match one of the supported types below
+#   name     - human-readable label (used in logs and DB records)
+#   model    - hardware model string (stored in DB, informational only)
+#   id       - device identifier; format depends on the driver (see per-type notes)
+#   ip       - LAN IP address of the device (static DHCP lease recommended)
+#   enabled  - set to false to skip this device without removing the entry
+
+devices:
+
+  # -------------------------------------------------------------------------
+  # Shelly 3EM-63W — three-phase energy meter
+  # -------------------------------------------------------------------------
+  # Communicates with the Shelly local REST API (no cloud required).
+  # Run `tinytuya scan` is NOT needed for Shelly devices.
+  #
+  # id  - channel identifier; always "em:0" for the first (and only) EM channel
+  # ip  - assign a static IP in your router's DHCP settings
+  #
+  - type: shelly-3em-63w
+    name: My Energy Meter           # descriptive label
+    model: Shelly 3EM-63W
+    id: "em:0"                      # fixed value for single-channel devices
+    ip: 192.168.1.100               # static LAN IP of the Shelly unit
+    enabled: true
+
+  # -------------------------------------------------------------------------
+  # Tuya Smart Plug — single-phase smart socket with energy monitoring
+  # -------------------------------------------------------------------------
+  # Communicates over LAN using the Tuya local protocol (tinytuya).
+  # Retrieve id, local_key, and version with: tinytuya scan
+  # Devices must be on the same LAN segment as the machine running Falk.
+  #
+  # id        - Tuya device ID (22-char alphanumeric string from the Tuya cloud)
+  # local_key - AES encryption key for local communication (from Tuya cloud or tinytuya scan)
+  # version   - protocol version reported by the device ("3.4" or "3.5" are most common)
+  #
+  - type: tuya-smart-plug
+    name: Living Room TV            # descriptive label, e.g. location + appliance
+    model: Tuya Smart Plug
+    id: bf000000000000000000aa      # 22-character Tuya device ID
+    ip: 192.168.1.101               # static LAN IP of the plug
+    local_key: "XXXXXXXXXXXXXXXX"   # 16-character local key (keep it secret)
+    version: "3.4"                  # "3.4" or "3.5"
+    enabled: true
+
+  # A second Tuya plug — copy and adjust for each additional device.
+  - type: tuya-smart-plug
+    name: Kitchen Dishwasher
+    model: Tuya Smart Plug
+    id: bf000000000000000000bb
+    ip: 192.168.1.102
+    local_key: "YYYYYYYYYYYYYYYY"
+    version: "3.5"
+    enabled: false                  # set to true when ready to monitor
+
+
+# ---------------------------------------------------------------------------
+# Supported device types (reference)
+# ---------------------------------------------------------------------------
+# Type string          Driver module            Notes
+# -------------------  -----------------------  ----------------------------
+# tuya-smart-plug      falk.iot.tuya.Switch     Tuya local protocol (LAN)
+# shelly-3em-63w       falk.iot.shelly.EnergyMeter  Shelly REST API (LAN)

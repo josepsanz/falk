@@ -63,7 +63,7 @@ def tuya_switch_telemetry(session, device):
         logger.warning('Something wrong! Skip!', exc_info=True)
 
 def shelly_em_telemetry(session, device):
-    stmt = select(db_devices.ShellyEM.id).where(db_devices.ShellyEM.ip == device['id'])
+    stmt = select(db_devices.ShellyEM.id).where(db_devices.ShellyEM.shelly_id == device['id'])
     db_id = session.scalar(stmt)
 
     try:
@@ -119,6 +119,7 @@ def main():
     engine = create_engine(devices['database']['uri'])
     Session = sessionmaker(engine)
 
+    breakpoint()
     with Session() as session:
         for device in devices['devices']:
             if device['enabled']:
@@ -148,7 +149,7 @@ def add_switch_device(uri, name, ip, tuya_id, local_key, version):
         session.add(tuya)
         session.commit()
 
-def add_em_device(uri, ip, model, name):
+def add_em_device(uri, name, model, ip, shelly_id):
     engine = create_engine(uri)
     Session = sessionmaker(engine)
 
@@ -157,10 +158,11 @@ def add_em_device(uri, ip, model, name):
             enabled=True,
             brand='Shelly',
             model=model,
-            state=None,
             name=name,
             ip=ip,
             location=None,
+
+            shelly_id=shelly_id
         )
         session.add(em)
         session.commit()
