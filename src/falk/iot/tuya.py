@@ -54,7 +54,7 @@ class Switch:
         self.__power = result['power']
         self.__voltage = result['voltage']
 
-        return result
+        return self
 
     def turn_on(self):
         raw_device = tinytuya.Device(self.id, self.ip, self.local_key, version=self.version)

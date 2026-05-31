@@ -33,7 +33,7 @@ class SmartSwitch(Base):
 
     metrics = relationship(
         "SwitchMetric",
-        back_populates="smart_switch",
+        back_populates=__tablename__,
         lazy="dynamic",
         cascade="all, delete-orphan",
         passive_deletes=True
@@ -81,4 +81,73 @@ class SwitchMetric(Base):
     smart_switch = relationship(
         "SmartSwitch",
         back_populates="metrics"
-    )    
+    )
+
+class ElectricalMeter(Base):
+    __tablename__ = "electrical_meter"
+
+    id = Column(Integer, primary_key=True)
+    device_type = Column(String(50), nullable=False)
+    enabled = Column(Boolean, nullable=False, default=True)
+    brand = Column(String(50), nullable=False)
+    model = Column(String(50), nullable=False)
+    name = Column(String(50), nullable=False)
+    ip = Column(String(50), nullable=True, default=None)
+    location = Column(String(50))
+
+    __mapper_args__ = {
+        "polymorphic_on": device_type,
+        "polymorphic_identity": "base"
+    }
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.brand} {self.model}>"
+
+    metrics = relationship(
+        "EMMetric",
+        back_populates=__tablename__,
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+class ShellyEM(ElectricalMeter):
+    __tablename__ = "shelly_em"
+
+    id = Column(
+        Integer, 
+        ForeignKey("electrical_meter.id", ondelete="CASCADE"), 
+        primary_key=True
+    )
+    
+    __mapper_args__ = {
+        "polymorphic_identity": "shelly_em_type"
+    }
+    
+
+class EMMetric(Base):
+    __tablename__ = "em_metric"
+
+    __table_args__ = (
+        Index(
+            "ix_em_metric_time",
+            "em_id",
+            "recorded_at"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    em_id = Column(
+        Integer,
+        ForeignKey("electrical_meter.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    current = Column(Integer, nullable=False)
+    voltage = Column(Float(precision=2), nullable=False)
+    power = Column(Float(precision=2), nullable=False)
+    recorded_at = Column(DateTime(timezone=True), default=datetime.datetime.now, nullable=False)
+
+    em = relationship(
+        "ElectricalMeter",
+        back_populates="metrics"
+    )

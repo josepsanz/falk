@@ -67,7 +67,7 @@ SELECT s.name, sm.current, sm.voltage, sm.power, sm.recorded_at FROM switch_metr
 
 cd $HOME/repos/falk
 
-/usr/local/bin/uv run -- python -m falk.telemetry
+uv run -- python -m falk.telemetry
 ```
 
 then in Crontab:
