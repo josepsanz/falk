@@ -63,7 +63,7 @@ SELECT s.name, sm.current, sm.voltage, sm.power, sm.recorded_at FROM switch_metr
 
 Query Energy Meter metrics
 ```sql
-SELECT * FROM energy_meter JOIN em_metric ON energy_meter.id = em_metric.em_id JOIN energy_phase ON em_metric.id = energy_phase.em_metric_id
+SELECT * FROM energy_meter JOIN em_metric ON energy_meter.id = em_metric.em_id JOIN energy_phase ON em_metric.id = energy_phase.em_metric_id;
 ```
 
 ### Examples how to add devices
@@ -71,7 +71,18 @@ SELECT * FROM energy_meter JOIN em_metric ON energy_meter.id = em_metric.em_id J
 from falk import telemetry
 
 telemetry.add_em_device('sqlite:///falk.db', name='Energy Meter SAXI Home', model='Shelly 3EM-63W', ip='192.168.1.132', shelly_id='em:0')
-telemetry.add_switch_device('sqlite:///falk.db', name='TSP004-20A-daewoo', ip='192.168.1.118', tuya_id='*', local_key='*', version='3.5')
+telemetry.add_switch_device('sqlite:///falk.db', name='TSP004-20A-daewoo', ip='192.168.1.118', tuya_id='*', local_key='*', version='3.4')
+```
+
+### Examples how to query live results
+```python
+from falk.iot import shelly, tuya
+
+em = shelly.EnergyMeter('192.168.1.132').refresh()
+print(em)
+
+sw = tuya.Switch(id='*', name='TSP004-20A-daewoo', ip='192.168.1.118', local_key='*', version='3.4').refresh()
+print(sw)
 ```
 
 

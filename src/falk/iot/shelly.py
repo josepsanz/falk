@@ -49,6 +49,14 @@ class EnergyMeter:
         self._data_url = f'http://{self.ip}/rpc/EMData.GetStatus?id=0'
         self._total_url = f'http://{self.ip}/rpc/Shelly.GetStatus'
 
+    def __repr__(self):
+        msg = (f'EnergyMeter(total_act_power={self.total_act_power/1000:.2f} kWh,'
+        f' total_aprt_power={self.total_aprt_power/1000:.2f} VA,'
+        f' total_current={self.total_current} A,'
+        f' total_act_energy={self.total_act_energy/1000:.2f} kWh)')
+
+        return msg
+
     def refresh(self): 
         resp = requests.get(self._total_url)
         resp.raise_for_status()

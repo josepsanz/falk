@@ -9,7 +9,7 @@ class Switch:
     name: str
     ip: str
     local_key: str = field(repr=False)
-    version: float = field(repr=False)
+    version: str = field(repr=False)
 
     def __post_init__(self):
         self.__state = None
