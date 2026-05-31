@@ -119,7 +119,6 @@ def main():
     engine = create_engine(devices['database']['uri'])
     Session = sessionmaker(engine)
 
-    breakpoint()
     with Session() as session:
         for device in devices['devices']:
             if device['enabled']:
