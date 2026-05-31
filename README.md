@@ -75,19 +75,5 @@ then in Crontab:
 */5 * * * * sh $HOME/falk-telemetry-cronjob.sh &> /dev/null
 ```
 
-## Web
-```bash
-cd web
-npm run dev
-```
-
-or 
-
-```bash
-cd web
-npm run build
-npm run preview
-```
-
 
 

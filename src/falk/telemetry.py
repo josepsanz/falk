@@ -66,6 +66,7 @@ def shelly_em_telemetry(session, device):
     try:
         em = shelly_em_telemetry(device['ip']).refresh()
         
+        
     except:
         logger.warning('Something wrong! Skip!', exc_info=True)
     
