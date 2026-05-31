@@ -20,7 +20,7 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 
 from falk.models.base import Base
-from falk.models.devices import SmartSwitch, TuyaSwitch, SwitchMetric, ElectricalMeter, ShellyEM, EMMetric
+from falk.models.devices import SmartSwitch, TuyaSwitch, SwitchMetric, EnergyMeter, ShellyEM, EMMetric
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

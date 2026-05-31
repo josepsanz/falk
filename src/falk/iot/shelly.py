@@ -6,7 +6,7 @@ import requests
 @dataclass
 class Phase:
     name: str
-    dev_name: str = field(repr=False)
+    dev_name: str  # Internal device name
     # status
     current: float = field(default=0)
     voltage: float = field(default=0)

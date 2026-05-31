@@ -33,28 +33,29 @@ class SmartSwitch(Base):
 
     metrics = relationship(
         "SwitchMetric",
-        back_populates=__tablename__,
+        back_populates="smart_switch",
         lazy="dynamic",
         cascade="all, delete-orphan",
         passive_deletes=True
     )
 
+
 class TuyaSwitch(SmartSwitch):
     __tablename__ = "tuya_switch"
 
     id = Column(
-        Integer, 
-        ForeignKey("smart_switch.id", ondelete="CASCADE"), 
+        Integer,
+        ForeignKey("smart_switch.id", ondelete="CASCADE"),
         primary_key=True
     )
     tuya_id = Column(String(50), nullable=False)
     local_key = Column(String(50), nullable=False)
     version = Column(Float, nullable=False)
-    
+
     __mapper_args__ = {
         "polymorphic_identity": "tuya_switch_type"
     }
-    
+
 
 class SwitchMetric(Base):
     __tablename__ = "switch_metric"
@@ -83,8 +84,9 @@ class SwitchMetric(Base):
         back_populates="metrics"
     )
 
-class ElectricalMeter(Base):
-    __tablename__ = "electrical_meter"
+
+class EnergyMeter(Base):
+    __tablename__ = "energy_meter"
 
     id = Column(Integer, primary_key=True)
     device_type = Column(String(50), nullable=False)
@@ -105,25 +107,25 @@ class ElectricalMeter(Base):
 
     metrics = relationship(
         "EMMetric",
-        back_populates=__tablename__,
+        back_populates="energy_meter",
         lazy="dynamic",
         cascade="all, delete-orphan",
         passive_deletes=True
     )
 
-class ShellyEM(ElectricalMeter):
+class ShellyEM(EnergyMeter):
     __tablename__ = "shelly_em"
 
     id = Column(
-        Integer, 
-        ForeignKey("electrical_meter.id", ondelete="CASCADE"), 
+        Integer,
+        ForeignKey("energy_meter.id", ondelete="CASCADE"),
         primary_key=True
     )
-    
+
     __mapper_args__ = {
         "polymorphic_identity": "shelly_em_type"
     }
-    
+
 
 class EMMetric(Base):
     __tablename__ = "em_metric"
@@ -139,15 +141,48 @@ class EMMetric(Base):
     id = Column(Integer, primary_key=True)
     em_id = Column(
         Integer,
-        ForeignKey("electrical_meter.id", ondelete="CASCADE"),
+        ForeignKey("energy_meter.id", ondelete="CASCADE"),
         nullable=False
     )
-    current = Column(Integer, nullable=False)
-    voltage = Column(Float(precision=2), nullable=False)
-    power = Column(Float(precision=2), nullable=False)
+    total_act_power = Column(Float(precision=3), nullable=False)
+    total_aprt_power = Column(Float(precision=3), nullable=False)
+    total_current = Column(Float(precision=3), nullable=False)
+    total_act_energy = Column(Float(precision=3), nullable=False)
+    total_act_ret_energy = Column(Float(precision=3), nullable=False)
     recorded_at = Column(DateTime(timezone=True), default=datetime.datetime.now, nullable=False)
 
-    em = relationship(
-        "ElectricalMeter",
+    energy_meter = relationship(
+        "EnergyMeter",
         back_populates="metrics"
+    )
+    phases = relationship(
+        "Phase",
+        back_populates="em_metric",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+
+class Phase(Base):
+    __tablename__ = "energy_phase"
+
+    id = Column(Integer, primary_key=True)
+    em_metric_id = Column(
+        Integer,
+        ForeignKey("em_metric.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    name = Column(String(10), nullable=False)
+    current = Column(Float(precision=3), nullable=False)
+    voltage = Column(Float(precision=3), nullable=False)
+    act_power = Column(Float(precision=3), nullable=False)
+    aprt_power = Column(Float(precision=3), nullable=False)
+    freq = Column(Float(precision=3), nullable=False)
+    pf = Column(Float(precision=3), nullable=False)
+    total_act_energy = Column(Float(precision=3), nullable=False)
+    total_act_ret_energy = Column(Float(precision=3), nullable=False)
+
+    em_metric = relationship(
+        "EMMetric",
+        back_populates="phases"
     )

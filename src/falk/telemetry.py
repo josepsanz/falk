@@ -63,10 +63,42 @@ def tuya_switch_telemetry(session, device):
         logger.warning('Something wrong! Skip!', exc_info=True)
 
 def shelly_em_telemetry(session, device):
+    stmt = select(db_devices.ShellyEM.id).where(db_devices.ShellyEM.ip == device['id'])
+    db_id = session.scalar(stmt)
+
     try:
-        em = shelly_em_telemetry(device['ip']).refresh()
-        
-        
+        em = EnergyMeter(device['ip']).refresh()
+
+        metric = db_devices.EMMetric(
+            em_id=db_id,
+            total_act_power=em.total_act_power,
+            total_aprt_power=em.total_aprt_power,
+            total_current=em.total_current,
+            total_act_energy=em.total_act_energy,
+            total_act_ret_energy=em.total_act_ret,
+            phases=[
+                db_devices.Phase(
+                    name=phase.name,
+                    current=phase.current,
+                    voltage=phase.voltage,
+                    act_power=phase.act_power,
+                    aprt_power=phase.aprt_power,
+                    freq=phase.freq,
+                    pf=phase.pf,
+                    total_act_energy=phase.total_act_energy,
+                    total_act_ret_energy=phase.total_act_ret_energy,
+                )
+                for phase in em.lines
+            ],
+        )
+        session.add(metric)
+        session.commit()
+
+        for phase in em.lines:
+            logger.debug(
+                f"{device['name']} {phase.name}: "
+                f"{phase.current:.3f}A, {phase.act_power:.1f}W, {phase.voltage:.1f}V"
+            )
     except:
         logger.warning('Something wrong! Skip!', exc_info=True)
     
@@ -95,7 +127,7 @@ def main():
     
     logger.info('Done!')
 
-def add_device(uri, name, ip, tuya_id, local_key, version):
+def add_switch_device(uri, name, ip, tuya_id, local_key, version):
     engine = create_engine(uri)
     Session = sessionmaker(engine)
 
@@ -114,6 +146,23 @@ def add_device(uri, name, ip, tuya_id, local_key, version):
             version=version
         )
         session.add(tuya)
+        session.commit()
+
+def add_em_device(uri, ip, model, name):
+    engine = create_engine(uri)
+    Session = sessionmaker(engine)
+
+    with Session() as session:    
+        em = db_devices.ShellyEM(
+            enabled=True,
+            brand='Shelly',
+            model=model,
+            state=None,
+            name=name,
+            ip=ip,
+            location=None,
+        )
+        session.add(em)
         session.commit()
 
 if __name__ == "__main__":
