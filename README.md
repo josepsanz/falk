@@ -138,5 +138,10 @@ then in Crontab:
 */5 * * * * sh $HOME/falk-telemetry-cronjob.sh &> /dev/null
 ```
 
+# Links and Resources
+
+[EnergiaXXI](https://www.energiaxxi.com/)
+[EIOS REE](https://www.esios.ree.es/es)
+[EIOS REE daily prices](api.esios.ree.es/archives/71/download)
 
 

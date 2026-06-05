@@ -38,20 +38,22 @@ def get_arguments():
     return parser.parse_args()
 
 def tuya_switch_telemetry(session, device):
-    stmt = select(db_devices.TuyaSwitch.id).where(db_devices.TuyaSwitch.tuya_id == device['id'])
-    db_id = session.scalar(stmt)
+    stmt = select(db_devices.TuyaSwitch).where(db_devices.TuyaSwitch.tuya_id == device['id'])
+    db_switch = session.scalar(stmt)
 
     try:
-        id = device['id']
-        name = device['name']
-        ip = device['ip']
-        local_key = device['local_key']
-        version = device['version']
+        switch = Switch(
+            id=device['id'],
+            name=device['name'],
+            ip=device['ip'],
+            local_key=device['local_key'],
+            version=device['version'],
+        ).refresh()
 
-        switch = Switch(id=id, name=name, ip=ip, local_key=local_key, version=version).refresh()
+        db_switch.state = switch.state
 
         metric = db_devices.SwitchMetric(
-            switch_id=db_id,
+            switch_id=db_switch.id,
             current=switch.current,
             voltage=switch.voltage,
             power=switch.power
