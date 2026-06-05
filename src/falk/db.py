@@ -20,9 +20,12 @@ _session_factory: sessionmaker[Session] | None = None
 def _configure_sqlite(dbapi_connection: object, _: object) -> None:
     """Apply per-connection SQLite pragmas for concurrency and integrity."""
     cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.execute("PRAGMA journal_mode=WAL")
+    # busy_timeout first so subsequent pragmas wait instead of failing instantly.
     cursor.execute(f"PRAGMA busy_timeout={_SQLITE_BUSY_TIMEOUT_MS}")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    # WAL mode requires a brief exclusive lock; if another process holds the DB
+    # it will retry for busy_timeout ms before raising.
+    cursor.execute("PRAGMA journal_mode=WAL")
     cursor.close()
 
 
