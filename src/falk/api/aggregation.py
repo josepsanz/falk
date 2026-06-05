@@ -7,9 +7,11 @@ over the sampling interval (plugs, which lack a cumulative counter).
 """
 
 import datetime
+import statistics
+from collections import defaultdict
 from dataclasses import dataclass
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Integer, Select, func, select
 from sqlalchemy.orm import Session, aliased
 
 from falk.models.devices import EMMetric, Phase, SmartSwitch, SwitchMetric
@@ -70,6 +72,82 @@ class Breakdown:
     devices: list[DeviceShare]
     assigned: float
     unassigned: float
+
+
+@dataclass(frozen=True, slots=True)
+class RankedDevice:
+    """A device's consumption value (W or kWh) for the ranking."""
+
+    id: int
+    name: str
+    value: float
+
+
+@dataclass(frozen=True, slots=True)
+class Ranking:
+    """Devices ranked by consumption, plus the unassigned remainder."""
+
+    total: float
+    unassigned: float
+    devices: list[RankedDevice]
+
+
+def device_ranking(
+    session: Session,
+    meter_id: int,
+    *,
+    metric: Metric,
+    window_days: int,
+    now: datetime.datetime,
+) -> Ranking | None:
+    """Rank devices by current power (W) or energy consumed over a window (kWh)."""
+    if metric is Metric.power:
+        breakdown = consumption_breakdown(session, meter_id)
+        if breakdown is None:
+            return None
+        devices = [
+            RankedDevice(id=d.id, name=d.name, value=d.power)
+            for d in breakdown.devices
+        ]
+        return Ranking(
+            total=breakdown.total_act_power,
+            unassigned=breakdown.unassigned,
+            devices=devices,
+        )
+
+    start = now - datetime.timedelta(days=window_days)
+    meter_wh = session.scalar(
+        select(
+            func.max(EMMetric.total_act_energy) - func.min(EMMetric.total_act_energy)
+        ).where(EMMetric.em_id == meter_id, EMMetric.recorded_at >= start)
+    )
+    meter_kwh = (meter_wh or 0.0) / _WH_PER_KWH
+
+    rows = session.execute(
+        select(SmartSwitch.id, SmartSwitch.name, func.sum(SwitchMetric.power))
+        .join(SwitchMetric, SwitchMetric.switch_id == SmartSwitch.id)
+        .where(
+            SmartSwitch.enabled.is_(True),
+            SwitchMetric.recorded_at >= start,
+        )
+        .group_by(SmartSwitch.id, SmartSwitch.name)
+    ).all()
+    devices = [
+        RankedDevice(
+            id=switch_id,
+            name=name,
+            value=round(
+                float(power_sum) * _PLUG_SAMPLE_INTERVAL_HOURS / _WH_PER_KWH, 3
+            ),
+        )
+        for switch_id, name, power_sum in rows
+        if power_sum is not None
+    ]
+    devices.sort(key=lambda device: device.value, reverse=True)
+    assigned = sum(device.value for device in devices)
+    unassigned = max(0.0, meter_kwh - assigned)
+    total = meter_kwh if meter_kwh > 0 else assigned
+    return Ranking(total=total, unassigned=round(unassigned, 3), devices=devices)
 
 
 def consumption_breakdown(session: Session, meter_id: int) -> Breakdown | None:
@@ -172,6 +250,144 @@ def meter_timeseries(
         rows = _meter_energy_rows(session, meter_id, phase, granularity, time_range)
         unit = "kWh"
     return unit, _densify(rows, granularity, time_range)
+
+
+_ACTIVE_THRESHOLD_W = 1.0
+
+
+@dataclass(frozen=True, slots=True)
+class PlugStatistics:
+    """Descriptive statistics and a simple consumption forecast for a plug."""
+
+    window_days: int
+    samples: int
+    power_avg: float
+    power_min: float
+    power_max: float
+    power_median: float
+    power_p95: float
+    active_ratio: float
+    energy_total_kwh: float
+    energy_daily_avg_kwh: float
+    energy_today_kwh: float
+    energy_last7_kwh: float
+    forecast_next_day_kwh: float
+    forecast_next_30d_kwh: float
+    trend_pct: float | None
+
+
+def plug_statistics(
+    session: Session,
+    plug_id: int,
+    *,
+    window_days: int,
+    now: datetime.datetime,
+) -> PlugStatistics | None:
+    """Compute descriptive power stats and an energy forecast over a window.
+
+    Energy is approximated as power × sampling interval (plugs have no
+    cumulative counter); the forecast is the recent 7-day average daily energy,
+    with a trend from comparing the last 7 days to the previous 7.
+    """
+    start = now - datetime.timedelta(days=window_days)
+    rows = session.execute(
+        select(SwitchMetric.recorded_at, SwitchMetric.power)
+        .where(
+            SwitchMetric.switch_id == plug_id,
+            SwitchMetric.recorded_at >= start,
+        )
+        .order_by(SwitchMetric.recorded_at)
+    ).all()
+    if not rows:
+        return None
+
+    powers = [float(power) for _, power in rows]
+    sample_count = len(powers)
+    p95 = (
+        statistics.quantiles(powers, n=20)[18]
+        if sample_count >= 2
+        else powers[0]
+    )
+    active_ratio = sum(p > _ACTIVE_THRESHOLD_W for p in powers) / sample_count
+
+    energy_per_day: dict[datetime.date, float] = defaultdict(float)
+    for recorded_at, power in rows:
+        energy_per_day[recorded_at.date()] += (
+            float(power) * _PLUG_SAMPLE_INTERVAL_HOURS / _WH_PER_KWH
+        )
+
+    today = now.date()
+    daily_values = list(energy_per_day.values())
+    total_kwh = sum(daily_values)
+    daily_avg = total_kwh / len(daily_values)
+
+    recent7 = [
+        kwh
+        for day, kwh in energy_per_day.items()
+        if day > today - datetime.timedelta(days=7)
+    ]
+    prev7 = [
+        kwh
+        for day, kwh in energy_per_day.items()
+        if today - datetime.timedelta(days=14) < day <= today - datetime.timedelta(days=7)
+    ]
+    recent7_avg = statistics.mean(recent7) if recent7 else daily_avg
+
+    trend_pct: float | None = None
+    if recent7 and prev7:
+        prev7_avg = statistics.mean(prev7)
+        if prev7_avg > 0:
+            trend_pct = (recent7_avg - prev7_avg) / prev7_avg * 100
+
+    return PlugStatistics(
+        window_days=window_days,
+        samples=sample_count,
+        power_avg=round(statistics.mean(powers), 1),
+        power_min=round(min(powers), 1),
+        power_max=round(max(powers), 1),
+        power_median=round(statistics.median(powers), 1),
+        power_p95=round(p95, 1),
+        active_ratio=round(active_ratio, 3),
+        energy_total_kwh=round(total_kwh, 3),
+        energy_daily_avg_kwh=round(daily_avg, 3),
+        energy_today_kwh=round(energy_per_day.get(today, 0.0), 3),
+        energy_last7_kwh=round(sum(recent7), 3),
+        forecast_next_day_kwh=round(recent7_avg, 3),
+        forecast_next_30d_kwh=round(recent7_avg * 30, 3),
+        trend_pct=round(trend_pct, 1) if trend_pct is not None else None,
+    )
+
+
+def plug_heatmap(
+    session: Session,
+    plug_id: int,
+    *,
+    days: int,
+    now: datetime.datetime,
+) -> list[tuple[str, int, float]]:
+    """Average plug power per (day, hour) cell over the last ``days`` days.
+
+    Returns (day 'YYYY-MM-DD', hour 0–23, average watts) tuples.
+    """
+    start = now - datetime.timedelta(days=days)
+    day_label = func.strftime("%Y-%m-%d", SwitchMetric.recorded_at).label("day")
+    hour_label = func.cast(
+        func.strftime("%H", SwitchMetric.recorded_at), Integer
+    ).label("hour")
+    stmt = (
+        select(day_label, hour_label, func.avg(SwitchMetric.power).label("value"))
+        .where(
+            SwitchMetric.switch_id == plug_id,
+            SwitchMetric.recorded_at >= start,
+        )
+        .group_by(day_label, hour_label)
+        .order_by(day_label, hour_label)
+    )
+    return [
+        (day, int(hour), round(float(value), 1))
+        for day, hour, value in session.execute(stmt)
+        if day is not None and hour is not None and value is not None
+    ]
 
 
 def plug_timeseries(

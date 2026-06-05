@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type SeriesParams } from "./api/client";
 
@@ -23,6 +23,18 @@ export function useMeterBreakdown(meterId: number | undefined) {
     queryFn: () => api.meterBreakdown(meterId!),
     enabled: meterId !== undefined,
     refetchInterval: LATEST_POLL_MS,
+  });
+}
+
+export function useMeterRanking(
+  meterId: number | undefined,
+  metric: "power" | "energy",
+  windowDays: number,
+) {
+  return useQuery({
+    queryKey: ["meter-ranking", meterId, metric, windowDays],
+    queryFn: () => api.meterRanking(meterId!, metric, windowDays),
+    enabled: meterId !== undefined,
   });
 }
 
@@ -58,5 +70,32 @@ export function usePlugSeries(
     queryKey: ["plug-series", plugId, params],
     queryFn: () => api.plugSeries(plugId!, params),
     enabled: plugId !== undefined,
+  });
+}
+
+export function usePlugStats(plugId: number | undefined) {
+  return useQuery({
+    queryKey: ["plug-stats", plugId],
+    queryFn: () => api.plugStats(plugId!),
+    enabled: plugId !== undefined,
+  });
+}
+
+export function usePlugHeatmap(plugId: number | undefined) {
+  return useQuery({
+    queryKey: ["plug-heatmap", plugId],
+    queryFn: () => api.plugHeatmap(plugId!),
+    enabled: plugId !== undefined,
+  });
+}
+
+export function useSetPlugState() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, on }: { id: number; on: boolean }) =>
+      api.setPlugState(id, on),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plugs"] });
+    },
   });
 }

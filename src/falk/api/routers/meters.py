@@ -1,18 +1,28 @@
 """Energy-meter endpoints: device list, latest reading, and time series."""
 
-from fastapi import APIRouter, HTTPException, status
+import datetime
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
 from falk.models.devices import EMMetric, EnergyMeter
 
-from ..aggregation import consumption_breakdown, meter_timeseries
+from ..aggregation import (
+    consumption_breakdown,
+    device_ranking,
+    meter_timeseries,
+)
 from ..deps import MeterSeriesQueryDep, SessionDep
 from ..schemas import (
     BreakdownDevice,
     BreakdownOut,
     MeterLatestOut,
     MeterOut,
+    Metric,
     PhaseReading,
+    RankedDevice,
+    RankingOut,
     TimeseriesOut,
 )
 
@@ -77,6 +87,40 @@ def meter_breakdown(meter_id: int, session: SessionDep) -> BreakdownOut:
         devices=[
             BreakdownDevice(id=device.id, name=device.name, power=device.power)
             for device in breakdown.devices
+        ],
+    )
+
+
+@router.get("/{meter_id}/ranking")
+def meter_ranking(
+    meter_id: int,
+    session: SessionDep,
+    metric: Annotated[Metric, Query()] = Metric.power,
+    window_days: Annotated[int, Query(ge=1, le=90)] = 7,
+) -> RankingOut:
+    """Rank devices by current power (W) or energy over a window (kWh)."""
+    ranking = device_ranking(
+        session,
+        meter_id,
+        metric=metric,
+        window_days=window_days,
+        now=datetime.datetime.now(),
+    )
+    if ranking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"no readings for meter {meter_id}",
+        )
+    return RankingOut(
+        meter_id=meter_id,
+        metric=metric,
+        unit="W" if metric is Metric.power else "kWh",
+        window_days=window_days,
+        total=ranking.total,
+        unassigned=ranking.unassigned,
+        devices=[
+            RankedDevice(id=d.id, name=d.name, value=d.value)
+            for d in ranking.devices
         ],
     )
 

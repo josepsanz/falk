@@ -15,7 +15,7 @@ export function Segmented<T extends string>({
 }: SegmentedProps<T>) {
   return (
     <div className="control">
-      <span className="control__label">{label}</span>
+      {label && <span className="control__label">{label}</span>}
       <div className="segmented" role="group" aria-label={label}>
         {options.map((option) => (
           <button

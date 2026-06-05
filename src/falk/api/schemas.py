@@ -69,6 +69,26 @@ class MeterLatestOut(BaseModel):
     phases: list[PhaseReading]
 
 
+class RankedDevice(BaseModel):
+    """A device's consumption value in the ranking."""
+
+    id: int
+    name: str
+    value: float
+
+
+class RankingOut(BaseModel):
+    """Devices ranked by power (W) or energy (kWh), plus the unassigned rest."""
+
+    meter_id: int
+    metric: Metric
+    unit: str
+    window_days: int
+    total: float
+    unassigned: float
+    devices: list[RankedDevice]
+
+
 class BreakdownDevice(BaseModel):
     """A device's share of the latest household consumption."""
 
@@ -110,6 +130,57 @@ class PlugLatestOut(BaseModel):
     power: float
     current: int
     voltage: float
+
+
+class PlugStatsOut(BaseModel):
+    """Descriptive statistics and consumption forecast for a plug."""
+
+    plug_id: int
+    window_days: int
+    samples: int
+    power_avg: float
+    power_min: float
+    power_max: float
+    power_median: float
+    power_p95: float
+    active_ratio: float
+    energy_total_kwh: float
+    energy_daily_avg_kwh: float
+    energy_today_kwh: float
+    energy_last7_kwh: float
+    forecast_next_day_kwh: float
+    forecast_next_30d_kwh: float
+    trend_pct: float | None = None
+
+
+class HeatmapCell(BaseModel):
+    """Average power for one (day, hour) cell."""
+
+    day: str
+    hour: int
+    value: float
+
+
+class HeatmapOut(BaseModel):
+    """Day × hour consumption grid for a plug."""
+
+    plug_id: int
+    unit: str
+    days: list[str]
+    cells: list[HeatmapCell]
+
+
+class PlugStateIn(BaseModel):
+    """Requested on/off state for a plug."""
+
+    on: bool
+
+
+class PlugStateOut(BaseModel):
+    """A plug's state after a switch command."""
+
+    plug_id: int
+    state: bool
 
 
 class TimeseriesPoint(BaseModel):

@@ -45,6 +45,22 @@ export interface Breakdown {
   devices: BreakdownDevice[];
 }
 
+export interface RankedDevice {
+  id: number;
+  name: string;
+  value: number;
+}
+
+export interface Ranking {
+  meter_id: number;
+  metric: Metric;
+  unit: string;
+  window_days: number;
+  total: number;
+  unassigned: number;
+  devices: RankedDevice[];
+}
+
 export interface Plug {
   id: number;
   name: string;
@@ -61,6 +77,43 @@ export interface PlugLatest {
   power: number;
   current: number;
   voltage: number;
+}
+
+export interface PlugState {
+  plug_id: number;
+  state: boolean;
+}
+
+export interface PlugStats {
+  plug_id: number;
+  window_days: number;
+  samples: number;
+  power_avg: number;
+  power_min: number;
+  power_max: number;
+  power_median: number;
+  power_p95: number;
+  active_ratio: number;
+  energy_total_kwh: number;
+  energy_daily_avg_kwh: number;
+  energy_today_kwh: number;
+  energy_last7_kwh: number;
+  forecast_next_day_kwh: number;
+  forecast_next_30d_kwh: number;
+  trend_pct: number | null;
+}
+
+export interface HeatmapCell {
+  day: string;
+  hour: number;
+  value: number;
+}
+
+export interface Heatmap {
+  plug_id: number;
+  unit: string;
+  days: string[];
+  cells: HeatmapCell[];
 }
 
 export interface TimeseriesPoint {

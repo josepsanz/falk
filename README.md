@@ -86,6 +86,44 @@ print(sw)
 ```
 
 
+## Web Dashboard
+
+A read-only React dashboard (served by a FastAPI JSON API) visualizes the
+consumption: a main gauge with the live total, one gauge per phase, a per-device
+breakdown donut, a consumption ranking, and power/energy time series. The plugs
+section can also switch each Tuya plug on/off.
+
+### Development (two processes)
+Run the API and the Vite dev server separately; Vite proxies `/api` to the API.
+```bash
+# Terminal 1 — API with auto-reload on :8000
+uv run uvicorn falk.api.main:app --reload --port 8000
+
+# Terminal 2 — frontend dev server on :5173 (proxies /api -> :8000)
+cd frontend
+npm install
+npm run dev
+```
+Open http://localhost:5173.
+
+### Production (single process)
+Build the SPA once, then serve everything from the API on one port. The build
+output goes to `src/falk/api/static/` and is served by the API (deep links fall
+back to `index.html`).
+```bash
+cd frontend && npm install && npm run build
+cd ..
+uv run falk-api          # host/port via FALK_API_HOST / FALK_API_PORT (default 127.0.0.1:8000)
+```
+Open http://localhost:8000.
+
+> On a Raspberry Pi: use a 64-bit OS (so `uv` can fetch Python 3.14 and ARM
+> wheels), and build the frontend on another machine, copying
+> `src/falk/api/static/` to the Pi — the Pi does not need Node.js.
+
+The dashboard auto-refreshes every minute and reads the same database the
+telemetry cron writes to (SQLite WAL mode handles concurrent read/write).
+
 ## Telemetry Cronjob
 ```bash
 #!/usr/bin/env bash
