@@ -12,6 +12,14 @@ uv sync
 uv run python -m falk.telemetry
 uv run python -m falk.telemetry --devices-file devices.yaml -v
 
+# Web dashboard — backend API (FastAPI). Serves the built SPA if present.
+uv run uvicorn falk.api.main:app --reload --port 8000   # dev (auto-reload)
+uv run falk-api                                          # prod launcher (FALK_API_HOST/PORT)
+
+# Web dashboard — frontend (React + Vite, in frontend/)
+cd frontend && npm install && npm run dev   # dev server on :5173, proxies /api -> :8000
+cd frontend && npm run build                # builds into src/falk/api/static/ (served by falk-api)
+
 # Database migrations
 alembic upgrade head                                    # apply all pending migrations
 alembic revision --autogenerate -m "message"           # generate migration from model diff
@@ -35,3 +43,9 @@ Falk is a home electricity monitoring system. It periodically polls Tuya smart p
 **Database:** SQLite at `falk.db` (path from `devices.yaml`). Alembic manages schema migrations with `render_as_batch=True` (required for SQLite ALTER TABLE support). All models must be imported in `alembic/env.py` for autogenerate to work.
 
 **Adding a new device type:** Subclass `SmartSwitch` with a new `__tablename__` and `polymorphic_identity`, add a corresponding IoT class in `falk/iot/`, and create an Alembic migration.
+
+**Web dashboard:** A read-only React SPA backed by a FastAPI JSON API visualizes consumption.
+- `falk/config.py` + `falk/db.py` — shared config loader and lazy engine/session factory (reused by telemetry and the API; SQLite runs in WAL so the API reads while cron writes). Env overrides: `FALK_DEVICES_FILE`, `FALK_DATABASE_URI`.
+- `falk/api/` — `main.py` (app factory + SPA mount), `routers/` (meters, plugs), `schemas.py` (pydantic v2), `aggregation.py` (time-series bucketing with `strftime`). Endpoints under `/api`: list/latest/timeseries for meters and plugs. The meter drives the gauges (total + L1/L2/L3) and per-phase series; plugs show per-appliance power/energy.
+- Time series: power = AVG per bucket; meter energy (kWh) = MAX−MIN of the cumulative Wh counter; plug energy is approximated as Σ power × sample-interval (plugs have no cumulative counter). Granularities: minute/hour/day/month with bucket-count guards.
+- `frontend/` — Vite + React + TS + ECharts (gauges + series). Build output (`src/falk/api/static/`) is gitignored; build on deploy.

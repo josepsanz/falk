@@ -1,10 +1,20 @@
 import datetime
 
-from sqlalchemy import Boolean
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, ForeignKey, Index
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import (
+    DynamicMapped,
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from .base import Base
 
@@ -12,179 +22,171 @@ from .base import Base
 class SmartSwitch(Base):
     __tablename__ = "smart_switch"
 
-    id = Column(Integer, primary_key=True)
-    device_type = Column(String(50), nullable=False)
-    enabled = Column(Boolean, nullable=False, default=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    brand = Column(String(50), nullable=False)
-    model = Column(String(50), nullable=False)
-    state = Column(Boolean, nullable=False, default=False)
-    name = Column(String(50), nullable=False)
-    ip = Column(String(50), nullable=True, default=None)
-    location = Column(String(50))
+    brand: Mapped[str] = mapped_column(String(50), nullable=False)
+    model: Mapped[str] = mapped_column(String(50), nullable=False)
+    state: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    ip: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+    location: Mapped[str | None] = mapped_column(String(50))
 
     __mapper_args__ = {
         "polymorphic_on": device_type,
-        "polymorphic_identity": "base"
+        "polymorphic_identity": "base",
     }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.brand} {self.model}>"
 
-    metrics = relationship(
+    metrics: DynamicMapped["SwitchMetric"] = relationship(
         "SwitchMetric",
         back_populates="smart_switch",
         lazy="dynamic",
         cascade="all, delete-orphan",
-        passive_deletes=True
+        passive_deletes=True,
     )
 
 
 class TuyaSwitch(SmartSwitch):
     __tablename__ = "tuya_switch"
 
-    id = Column(
+    id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("smart_switch.id", ondelete="CASCADE"),
-        primary_key=True
+        primary_key=True,
     )
-    tuya_id = Column(String(50), nullable=False)
-    local_key = Column(String(50), nullable=False)
-    version = Column(String(16), nullable=False)
+    tuya_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    local_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    version: Mapped[str] = mapped_column(String(16), nullable=False)
 
-    __mapper_args__ = {
-        "polymorphic_identity": "tuya_switch_type"
-    }
+    __mapper_args__ = {"polymorphic_identity": "tuya_switch_type"}
 
 
 class SwitchMetric(Base):
     __tablename__ = "switch_metric"
 
     __table_args__ = (
-        Index(
-            "ix_switch_metric_switch_time",
-            "switch_id",
-            "recorded_at"
-        ),
+        Index("ix_switch_metric_switch_time", "switch_id", "recorded_at"),
     )
 
-    id = Column(Integer, primary_key=True)
-    switch_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    switch_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("smart_switch.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
-    current = Column(Integer, nullable=False)
-    voltage = Column(Float(precision=2), nullable=False)
-    power = Column(Float(precision=2), nullable=False)
-    recorded_at = Column(DateTime(timezone=True), default=datetime.datetime.now, nullable=False)
+    current: Mapped[int] = mapped_column(Integer, nullable=False)
+    voltage: Mapped[float] = mapped_column(Float(precision=2), nullable=False)
+    power: Mapped[float] = mapped_column(Float(precision=2), nullable=False)
+    recorded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.datetime.now, nullable=False
+    )
 
-    smart_switch = relationship(
-        "SmartSwitch",
-        back_populates="metrics"
+    smart_switch: Mapped["SmartSwitch"] = relationship(
+        "SmartSwitch", back_populates="metrics"
     )
 
 
 class EnergyMeter(Base):
     __tablename__ = "energy_meter"
 
-    id = Column(Integer, primary_key=True)
-    device_type = Column(String(50), nullable=False)
-    enabled = Column(Boolean, nullable=False, default=True)
-    brand = Column(String(50), nullable=False)
-    model = Column(String(50), nullable=False)
-    name = Column(String(50), nullable=False)
-    ip = Column(String(50), nullable=True, default=None)
-    location = Column(String(50))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    brand: Mapped[str] = mapped_column(String(50), nullable=False)
+    model: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    ip: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
+    location: Mapped[str | None] = mapped_column(String(50))
 
     __mapper_args__ = {
         "polymorphic_on": device_type,
-        "polymorphic_identity": "base"
+        "polymorphic_identity": "base",
     }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.brand} {self.model}>"
 
-    metrics = relationship(
+    metrics: DynamicMapped["EMMetric"] = relationship(
         "EMMetric",
         back_populates="energy_meter",
         lazy="dynamic",
         cascade="all, delete-orphan",
-        passive_deletes=True
+        passive_deletes=True,
     )
+
 
 class ShellyEM(EnergyMeter):
     __tablename__ = "shelly_em"
 
-    id = Column(
+    id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("energy_meter.id", ondelete="CASCADE"),
-        primary_key=True
+        primary_key=True,
     )
 
-    __mapper_args__ = {
-        "polymorphic_identity": "shelly_em_type"
-    }
+    __mapper_args__ = {"polymorphic_identity": "shelly_em_type"}
 
-    shelly_id = Column(String(50), nullable=False)
+    shelly_id: Mapped[str] = mapped_column(String(50), nullable=False)
 
 
 class EMMetric(Base):
     __tablename__ = "em_metric"
 
-    __table_args__ = (
-        Index(
-            "ix_em_metric_time",
-            "em_id",
-            "recorded_at"
-        ),
-    )
+    __table_args__ = (Index("ix_em_metric_time", "em_id", "recorded_at"),)
 
-    id = Column(Integer, primary_key=True)
-    em_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    em_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("energy_meter.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
-    total_act_power = Column(Float(precision=3), nullable=False)
-    total_aprt_power = Column(Float(precision=3), nullable=False)
-    total_current = Column(Float(precision=3), nullable=False)
-    total_act_energy = Column(Float(precision=3), nullable=False)
-    total_act_ret_energy = Column(Float(precision=3), nullable=False)
-    recorded_at = Column(DateTime(timezone=True), default=datetime.datetime.now, nullable=False)
+    total_act_power: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    total_aprt_power: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    total_current: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    total_act_energy: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    total_act_ret_energy: Mapped[float] = mapped_column(
+        Float(precision=3), nullable=False
+    )
+    recorded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.datetime.now, nullable=False
+    )
 
-    energy_meter = relationship(
-        "EnergyMeter",
-        back_populates="metrics"
+    energy_meter: Mapped["EnergyMeter"] = relationship(
+        "EnergyMeter", back_populates="metrics"
     )
-    phases = relationship(
+    phases: Mapped[list["Phase"]] = relationship(
         "Phase",
         back_populates="em_metric",
         cascade="all, delete-orphan",
-        passive_deletes=True
+        passive_deletes=True,
     )
 
 
 class Phase(Base):
     __tablename__ = "energy_phase"
 
-    id = Column(Integer, primary_key=True)
-    em_metric_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    em_metric_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("em_metric.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
-    name = Column(String(10), nullable=False)
-    current = Column(Float(precision=3), nullable=False)
-    voltage = Column(Float(precision=3), nullable=False)
-    act_power = Column(Float(precision=3), nullable=False)
-    aprt_power = Column(Float(precision=3), nullable=False)
-    freq = Column(Float(precision=3), nullable=False)
-    pf = Column(Float(precision=3), nullable=False)
-    total_act_energy = Column(Float(precision=3), nullable=False)
-    total_act_ret_energy = Column(Float(precision=3), nullable=False)
+    name: Mapped[str] = mapped_column(String(10), nullable=False)
+    current: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    voltage: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    act_power: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    aprt_power: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    freq: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    pf: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    total_act_energy: Mapped[float] = mapped_column(Float(precision=3), nullable=False)
+    total_act_ret_energy: Mapped[float] = mapped_column(
+        Float(precision=3), nullable=False
+    )
 
-    em_metric = relationship(
-        "EMMetric",
-        back_populates="phases"
+    em_metric: Mapped["EMMetric"] = relationship(
+        "EMMetric", back_populates="phases"
     )

@@ -1,10 +1,12 @@
 import logging
 import argparse
+import os
 
-import yaml
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
+from falk.config import DEVICES_FILE_ENV, load_config
+from falk.db import session_factory
 from falk.iot.tuya import Switch
 from falk.iot.shelly import EnergyMeter
 from falk.models import devices as db_devices
@@ -59,7 +61,7 @@ def tuya_switch_telemetry(session, device):
 
         msg = f"{switch.name:>27}: {switch.current:>6}mA, {switch.power:>6}W, {switch.voltage:>6}V"
         logger.debug(msg)
-    except:
+    except Exception:
         logger.warning('Something wrong! Skip!', exc_info=True)
 
 def shelly_em_telemetry(session, device):
@@ -99,7 +101,7 @@ def shelly_em_telemetry(session, device):
                 f"{device['name']} {phase.name}: "
                 f"{phase.current:.3f}A, {phase.act_power:.1f}W, {phase.voltage:.1f}V"
             )
-    except:
+    except Exception:
         logger.warning('Something wrong! Skip!', exc_info=True)
     
 
@@ -113,11 +115,10 @@ def main():
     level = logging.DEBUG if arguments.verbose else logging.INFO
     set_logger('telemetry.log', level)
 
-    with open(arguments.devices_file, 'r') as fp: 
-        devices = yaml.safe_load(fp)
+    os.environ[DEVICES_FILE_ENV] = arguments.devices_file
+    devices = load_config()
 
-    engine = create_engine(devices['database']['uri'])
-    Session = sessionmaker(engine)
+    Session = session_factory()
 
     with Session() as session:
         for device in devices['devices']:

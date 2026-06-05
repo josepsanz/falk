@@ -8,11 +8,16 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi>=0.115",
     "pyyaml>=6.0.3",
     "requests>=2.32.5",
     "sqlalchemy>=2.0.46",
     "tinytuya>=1.17.4",
+    "uvicorn[standard]>=0.30",
 ]
+
+[project.scripts]
+falk-api = "falk.api.main:run"
 
 [dependency-groups]
 dev = [

@@ -13,9 +13,16 @@ wheels/
 # Log
 *.log
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+src/falk/api/static/
+
 # Others
 *.db
 *.db.bck
+*.db-wal
+*.db-shm
 devices.json
 devices.yaml
 snapshot.json
