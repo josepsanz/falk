@@ -138,9 +138,133 @@ body::before {
   }
 }
 
+/* Directional charge carriers — thin streaks traversing the field */
+.electron {
+  position: absolute;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  box-shadow: 0 0 5px var(--e-glow, rgba(0, 230, 118, 0.3));
+}
+
+/* Anchor all electrons at the "start" edge; keyframes drive them across */
+.electron--ltr {
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--e-color, rgba(0, 230, 118, 0.9))
+  );
+  animation-name: electron-ltr;
+}
+
+.electron--rtl {
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--e-color, rgba(0, 230, 118, 0.9)),
+    transparent
+  );
+  animation-name: electron-rtl;
+}
+
+.electron--ttb {
+  top: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--e-color, rgba(0, 230, 118, 0.9))
+  );
+  animation-name: electron-ttb;
+}
+
+.electron--btt {
+  top: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    var(--e-color, rgba(0, 230, 118, 0.9)),
+    transparent
+  );
+  animation-name: electron-btt;
+}
+
+@keyframes electron-ltr {
+  0% {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  6% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  94% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(100vw + 60px));
+  }
+}
+
+@keyframes electron-rtl {
+  0% {
+    opacity: 0;
+    transform: translateX(calc(100vw + 60px));
+  }
+  6% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  94% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+}
+
+@keyframes electron-ttb {
+  0% {
+    opacity: 0;
+    transform: translateY(-60px);
+  }
+  6% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  94% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(100vh + 60px));
+  }
+}
+
+@keyframes electron-btt {
+  0% {
+    opacity: 0;
+    transform: translateY(calc(100vh + 60px));
+  }
+  6% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  94% {
+    opacity: var(--e-opacity, 0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .backdrop::before,
-  .spark {
+  .spark,
+  .electron {
     animation: none;
   }
 }
