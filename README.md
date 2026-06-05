@@ -97,6 +97,7 @@ section can also switch each Tuya plug on/off.
 Run the API and the Vite dev server separately; Vite proxies `/api` to the API.
 ```bash
 # Terminal 1 — API with auto-reload on :8000
+rm -f falk.db-wal falk.db-shm
 uv run uvicorn falk.api.main:app --reload --port 8000
 
 # Terminal 2 — frontend dev server on :5173 (proxies /api -> :8000)
