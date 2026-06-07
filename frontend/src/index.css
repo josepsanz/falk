@@ -707,6 +707,36 @@ body::after {
   text-transform: uppercase;
 }
 
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.general-row {
+  display: grid;
+  grid-template-columns: minmax(380px, 1.2fr) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .charts-row,
+  .general-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.treemap-cell polygon {
+  cursor: pointer;
+  transition: fill-opacity 0.15s ease;
+}
+
+.treemap-cell:hover polygon {
+  fill-opacity: 1;
+}
+
 /* ---- Plugs ---- */
 .plugs-layout {
   display: grid;

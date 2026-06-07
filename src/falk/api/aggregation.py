@@ -150,6 +150,100 @@ def device_ranking(
     return Ranking(total=total, unassigned=round(unassigned, 3), devices=devices)
 
 
+@dataclass(frozen=True, slots=True)
+class DeviceEnergyEntry:
+    """One device's bucketed energy consumption (kWh per bucket)."""
+
+    id: int
+    name: str
+    values: list[float]
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceEnergySeries:
+    """Per-device energy series sharing a common bucket axis, plus the rest.
+
+    ``unassigned`` is the household energy not metered by any plug (the meter's
+    consumption minus the sum of plug draws per bucket, clamped at zero), so the
+    device series and the unassigned series stack up to the household total.
+    """
+
+    buckets: list[str]
+    devices: list[DeviceEnergyEntry]
+    unassigned: list[float]
+
+
+def device_energy_series(
+    session: Session,
+    meter_id: int,
+    *,
+    granularity: Granularity,
+    time_range: TimeRange,
+) -> DeviceEnergySeries:
+    """Build a per-device energy (kWh) series for stacking over a time range.
+
+    Each enabled plug becomes a series of energy-per-bucket values (power
+    integrated over the sampling interval), densified to every bucket in the
+    range with ``0.0`` where the plug recorded nothing. The unassigned series
+    is the meter's per-bucket energy minus the summed plug energy.
+    """
+    bucket = _bucket_label(SwitchMetric.recorded_at, granularity)
+    energy_expr = func.sum(SwitchMetric.power) * (
+        _PLUG_SAMPLE_INTERVAL_HOURS / _WH_PER_KWH
+    )
+    rows = session.execute(
+        select(
+            SmartSwitch.id,
+            SmartSwitch.name,
+            bucket.label("bucket"),
+            energy_expr.label("value"),
+        )
+        .join(SwitchMetric, SwitchMetric.switch_id == SmartSwitch.id)
+        .where(
+            SmartSwitch.enabled.is_(True),
+            SwitchMetric.recorded_at >= time_range.start,
+            SwitchMetric.recorded_at < time_range.end,
+        )
+        .group_by(SmartSwitch.id, "bucket")
+        .order_by(SmartSwitch.id, "bucket")
+    ).all()
+
+    labels = [
+        moment.strftime(_STRFTIME_FORMAT[granularity])
+        for moment in _iter_buckets(time_range, granularity)
+    ]
+
+    names: dict[int, str] = {}
+    by_device: dict[int, dict[str, float]] = defaultdict(dict)
+    for switch_id, name, bucket_label, value in rows:
+        if bucket_label is None or value is None:
+            continue
+        names[switch_id] = name
+        by_device[switch_id][bucket_label] = round(float(value), 3)
+
+    devices = [
+        DeviceEnergyEntry(
+            id=switch_id,
+            name=names[switch_id],
+            values=[buckets.get(label, 0.0) for label in labels],
+        )
+        for switch_id, buckets in by_device.items()
+    ]
+    devices.sort(key=lambda d: sum(d.values), reverse=True)
+
+    meter_kwh = _meter_energy_rows(
+        session, meter_id, PhaseSel.total, granularity, time_range
+    )
+    assigned_per_bucket = [
+        sum(device.values[i] for device in devices) for i in range(len(labels))
+    ]
+    unassigned = [
+        round(max(0.0, meter_kwh.get(label, 0.0) - assigned_per_bucket[i]), 3)
+        for i, label in enumerate(labels)
+    ]
+    return DeviceEnergySeries(buckets=labels, devices=devices, unassigned=unassigned)
+
+
 def consumption_breakdown(session: Session, meter_id: int) -> Breakdown | None:
     """Split the meter's latest total power across plugs and the unassigned rest.
 
@@ -253,6 +347,115 @@ def meter_timeseries(
 
 
 _ACTIVE_THRESHOLD_W = 1.0
+
+
+@dataclass(frozen=True, slots=True)
+class MeterStatistics:
+    """Descriptive power stats and an energy trend/forecast for an energy meter."""
+
+    window_days: int
+    samples: int
+    power_now: float
+    power_avg: float
+    power_min: float
+    power_max: float
+    power_median: float
+    power_p95: float
+    energy_total_kwh: float
+    energy_daily_avg_kwh: float
+    energy_today_kwh: float
+    energy_last7_kwh: float
+    forecast_next_day_kwh: float
+    forecast_next_30d_kwh: float
+    trend_pct: float | None
+
+
+def meter_statistics(
+    session: Session,
+    meter_id: int,
+    *,
+    window_days: int,
+    now: datetime.datetime,
+) -> MeterStatistics | None:
+    """Compute power statistics and an energy trend/forecast for a meter.
+
+    Power stats summarise the instantaneous ``total_act_power`` samples. Energy
+    is derived per day from the cumulative Wh counter (MAX−MIN), which is more
+    accurate than integrating power; the forecast is the recent 7-day average
+    daily energy, with a trend comparing the last 7 days to the previous 7.
+    """
+    start = now - datetime.timedelta(days=window_days)
+    rows = session.execute(
+        select(
+            EMMetric.recorded_at,
+            EMMetric.total_act_power,
+            EMMetric.total_act_energy,
+        )
+        .where(EMMetric.em_id == meter_id, EMMetric.recorded_at >= start)
+        .order_by(EMMetric.recorded_at)
+    ).all()
+    if not rows:
+        return None
+
+    powers = [float(power) for _, power, _ in rows]
+    sample_count = len(powers)
+    p95 = (
+        statistics.quantiles(powers, n=20)[18]
+        if sample_count >= 2
+        else powers[0]
+    )
+
+    # Daily energy from the cumulative counter: last reading minus first per day.
+    counters_by_day: dict[datetime.date, list[float]] = defaultdict(list)
+    for recorded_at, _, energy in rows:
+        counters_by_day[recorded_at.date()].append(float(energy))
+    energy_per_day = {
+        day: (max(values) - min(values)) / _WH_PER_KWH
+        for day, values in counters_by_day.items()
+    }
+
+    today = now.date()
+    daily_values = list(energy_per_day.values())
+    total_kwh = sum(daily_values)
+    daily_avg = total_kwh / len(daily_values)
+
+    recent7 = [
+        kwh
+        for day, kwh in energy_per_day.items()
+        if day > today - datetime.timedelta(days=7)
+    ]
+    prev7 = [
+        kwh
+        for day, kwh in energy_per_day.items()
+        if today - datetime.timedelta(days=14)
+        < day
+        <= today - datetime.timedelta(days=7)
+    ]
+    recent7_avg = statistics.mean(recent7) if recent7 else daily_avg
+
+    trend_pct: float | None = None
+    if recent7 and prev7:
+        prev7_avg = statistics.mean(prev7)
+        if prev7_avg > 0:
+            trend_pct = (recent7_avg - prev7_avg) / prev7_avg * 100
+
+    return MeterStatistics(
+        window_days=window_days,
+        samples=sample_count,
+        power_now=round(powers[-1], 1),
+        power_avg=round(statistics.mean(powers), 1),
+        power_min=round(min(powers), 1),
+        power_max=round(max(powers), 1),
+        power_median=round(statistics.median(powers), 1),
+        power_p95=round(p95, 1),
+        energy_total_kwh=round(total_kwh, 3),
+        energy_daily_avg_kwh=round(daily_avg, 3),
+        energy_today_kwh=round(energy_per_day.get(today, 0.0), 3),
+        energy_last7_kwh=round(sum(recent7), 3),
+        forecast_next_day_kwh=round(recent7_avg, 3),
+        forecast_next_30d_kwh=round(recent7_avg * 30, 3),
+        trend_pct=round(trend_pct, 1) if trend_pct is not None else None,
+    )
 
 
 @dataclass(frozen=True, slots=True)

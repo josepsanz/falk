@@ -1,21 +1,16 @@
 import { useState } from "react";
 
-import type { Granularity, Metric, PhaseSel } from "../api/types";
+import type { Metric, PhaseSel } from "../api/types";
 import { BreakdownChart } from "../components/BreakdownChart";
 import { ConsumptionRanking } from "../components/ConsumptionRanking";
 import { Gauge } from "../components/Gauge";
-import { TimeSeriesChart } from "../components/TimeSeriesChart";
-import {
-  GRANULARITY_OPTIONS,
-  METRIC_OPTIONS,
-  PHASE_OPTIONS,
-  Segmented,
-} from "../components/Controls";
+import { MeterStatsPanel } from "../components/MeterStatsPanel";
+import { METRIC_OPTIONS, Segmented } from "../components/Controls";
 import {
   useMeterBreakdown,
   useMeterLatest,
   useMeterRanking,
-  useMeterSeries,
+  useMeterStats,
   useMeters,
 } from "../hooks";
 import { useSettings } from "../settings";
@@ -33,7 +28,13 @@ const RANK_WINDOW_OPTIONS = [
   { value: "30", label: "30 dies" },
 ];
 
-export function Dashboard() {
+const STATS_WINDOW_OPTIONS = [
+  { value: "7", label: "7 dies" },
+  { value: "30", label: "30 dies" },
+  { value: "90", label: "90 dies" },
+];
+
+export function General() {
   const { settings } = useSettings();
   const { data: meters } = useMeters();
   const meterId = meters?.[0]?.id;
@@ -45,28 +46,8 @@ export function Dashboard() {
   const [rankWindow, setRankWindow] = useState(7);
   const { data: ranking } = useMeterRanking(meterId, rankMetric, rankWindow);
 
-  const [metric, setMetric] = useState<Metric>("power");
-  const [granularity, setGranularity] = useState<Granularity>("hour");
-  const [phase, setPhase] = useState<PhaseSel>("total");
-  const { data: series } = useMeterSeries(meterId, {
-    metric,
-    granularity,
-    phase,
-  });
-
-  // Energy can't be resolved finer than the sampling interval, so minute
-  // granularity is unavailable for energy.
-  const granularityOptions =
-    metric === "energy"
-      ? GRANULARITY_OPTIONS.filter((option) => option.value !== "minute")
-      : GRANULARITY_OPTIONS;
-
-  const handleMetric = (next: Metric) => {
-    setMetric(next);
-    if (next === "energy" && granularity === "minute") {
-      setGranularity("hour");
-    }
-  };
+  const [statsWindow, setStatsWindow] = useState(30);
+  const { data: stats } = useMeterStats(meterId, statsWindow);
 
   return (
     <div className="page">
@@ -126,63 +107,57 @@ export function Dashboard() {
         ))}
       </section>
 
-      <section className="card ranking-card">
-        <div className="card-head card-head--row">
-          <div>
-            <span className="card-eyebrow">Rànquing</span>
-            <h2>Qui consumeix més</h2>
-          </div>
-          <div className="ranking-controls">
-            <Segmented
-              label=""
-              value={rankMetric}
-              options={METRIC_OPTIONS}
-              onChange={setRankMetric}
-            />
-            {rankMetric === "energy" && (
+      <div className="general-row">
+        <section className="card ranking-card">
+          <div className="card-head card-head--row">
+            <div>
+              <span className="card-eyebrow">Rànquing</span>
+              <h2>Qui consumeix més</h2>
+            </div>
+            <div className="ranking-controls">
               <Segmented
                 label=""
-                value={String(rankWindow)}
-                options={RANK_WINDOW_OPTIONS}
-                onChange={(value) => setRankWindow(Number(value))}
+                value={rankMetric}
+                options={METRIC_OPTIONS}
+                onChange={setRankMetric}
               />
-            )}
+              {rankMetric === "energy" && (
+                <Segmented
+                  label=""
+                  value={String(rankWindow)}
+                  options={RANK_WINDOW_OPTIONS}
+                  onChange={(value) => setRankWindow(Number(value))}
+                />
+              )}
+            </div>
           </div>
-        </div>
-        {ranking ? (
-          <ConsumptionRanking data={ranking} />
-        ) : (
-          <div className="placeholder">Carregant rànquing…</div>
-        )}
-      </section>
+          {ranking ? (
+            <ConsumptionRanking data={ranking} />
+          ) : (
+            <div className="placeholder">Carregant rànquing…</div>
+          )}
+        </section>
 
-      <section className="card series-card">
-        <div className="controls">
-          <Segmented
-            label="Mètrica"
-            value={metric}
-            options={METRIC_OPTIONS}
-            onChange={handleMetric}
-          />
-          <Segmented
-            label="Fase"
-            value={phase}
-            options={PHASE_OPTIONS}
-            onChange={setPhase}
-          />
-          <Segmented
-            label="Granularitat"
-            value={granularity}
-            options={granularityOptions}
-            onChange={setGranularity}
-          />
-        </div>
-        {series ? (
-          <TimeSeriesChart series={series} accent={ACCENTS[phase]} />
-        ) : (
-          <div className="placeholder">Carregant sèrie…</div>
-        )}
-      </section>
+        <section className="card stats-card">
+          <div className="card-head card-head--row">
+            <div>
+              <span className="card-eyebrow">Estadístiques</span>
+              <h2>Potència i consum</h2>
+            </div>
+            <Segmented
+              label=""
+              value={String(statsWindow)}
+              options={STATS_WINDOW_OPTIONS}
+              onChange={(value) => setStatsWindow(Number(value))}
+            />
+          </div>
+          {stats ? (
+            <MeterStatsPanel data={stats} />
+          ) : (
+            <div className="placeholder">Carregant estadístiques…</div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

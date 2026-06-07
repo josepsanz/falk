@@ -64,6 +64,26 @@ def meter_series_query(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class DeviceSeriesQuery:
+    """Validated query parameters for a per-device energy series request."""
+
+    granularity: Granularity
+    time_range: TimeRange
+
+
+def device_series_query(
+    granularity: Annotated[Granularity, Query()] = Granularity.day,
+    dt_from: Annotated[datetime.datetime | None, Query(alias="from")] = None,
+    dt_to: Annotated[datetime.datetime | None, Query(alias="to")] = None,
+) -> DeviceSeriesQuery:
+    """Parse and validate the query parameters for a per-device energy series."""
+    return DeviceSeriesQuery(
+        granularity=granularity,
+        time_range=_resolve(granularity, dt_from, dt_to),
+    )
+
+
 def plug_series_query(
     metric: Annotated[Metric, Query()] = Metric.power,
     granularity: Annotated[Granularity, Query()] = Granularity.hour,
@@ -81,3 +101,4 @@ def plug_series_query(
 
 MeterSeriesQueryDep = Annotated[SeriesQuery, Depends(meter_series_query)]
 PlugSeriesQueryDep = Annotated[SeriesQuery, Depends(plug_series_query)]
+DeviceSeriesQueryDep = Annotated[DeviceSeriesQuery, Depends(device_series_query)]

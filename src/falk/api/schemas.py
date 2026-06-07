@@ -183,6 +183,46 @@ class PlugStateOut(BaseModel):
     state: bool
 
 
+class MeterStatsOut(BaseModel):
+    """Descriptive power statistics and an energy trend/forecast for a meter."""
+
+    meter_id: int
+    window_days: int
+    samples: int
+    power_now: float
+    power_avg: float
+    power_min: float
+    power_max: float
+    power_median: float
+    power_p95: float
+    energy_total_kwh: float
+    energy_daily_avg_kwh: float
+    energy_today_kwh: float
+    energy_last7_kwh: float
+    forecast_next_day_kwh: float
+    forecast_next_30d_kwh: float
+    trend_pct: float | None = None
+
+
+class DeviceSeriesEntry(BaseModel):
+    """One device's energy values aligned to the shared ``buckets`` axis."""
+
+    id: int
+    name: str
+    values: list[float]
+
+
+class DeviceSeriesOut(BaseModel):
+    """Per-device energy series for a stacked area chart, plus the unassigned rest."""
+
+    meter_id: int
+    granularity: Granularity
+    unit: str
+    buckets: list[str]
+    devices: list[DeviceSeriesEntry]
+    unassigned: list[float]
+
+
 class TimeseriesPoint(BaseModel):
     """A single bucketed value. ``value`` is null for buckets without data."""
 

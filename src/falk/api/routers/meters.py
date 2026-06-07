@@ -1,5 +1,6 @@
 """Energy-meter endpoints: device list, latest reading, and time series."""
 
+import dataclasses
 import datetime
 from typing import Annotated
 
@@ -10,15 +11,20 @@ from falk.models.devices import EMMetric, EnergyMeter
 
 from ..aggregation import (
     consumption_breakdown,
+    device_energy_series,
     device_ranking,
+    meter_statistics,
     meter_timeseries,
 )
-from ..deps import MeterSeriesQueryDep, SessionDep
+from ..deps import DeviceSeriesQueryDep, MeterSeriesQueryDep, SessionDep
 from ..schemas import (
     BreakdownDevice,
     BreakdownOut,
+    DeviceSeriesEntry,
+    DeviceSeriesOut,
     MeterLatestOut,
     MeterOut,
+    MeterStatsOut,
     Metric,
     PhaseReading,
     RankedDevice,
@@ -122,6 +128,51 @@ def meter_ranking(
             RankedDevice(id=d.id, name=d.name, value=d.value)
             for d in ranking.devices
         ],
+    )
+
+
+@router.get("/{meter_id}/stats")
+def meter_stats(
+    meter_id: int,
+    session: SessionDep,
+    window_days: Annotated[int, Query(ge=1, le=90)] = 30,
+) -> MeterStatsOut:
+    """Descriptive power statistics and an energy trend/forecast for a meter."""
+    stats = meter_statistics(
+        session,
+        meter_id,
+        window_days=window_days,
+        now=datetime.datetime.now(),
+    )
+    if stats is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"no readings for meter {meter_id}",
+        )
+    return MeterStatsOut(meter_id=meter_id, **dataclasses.asdict(stats))
+
+
+@router.get("/{meter_id}/device-series")
+def meter_device_series(
+    meter_id: int, query: DeviceSeriesQueryDep, session: SessionDep
+) -> DeviceSeriesOut:
+    """Return a per-device energy series (kWh per bucket) for a stacked area chart."""
+    series = device_energy_series(
+        session,
+        meter_id,
+        granularity=query.granularity,
+        time_range=query.time_range,
+    )
+    return DeviceSeriesOut(
+        meter_id=meter_id,
+        granularity=query.granularity,
+        unit="kWh",
+        buckets=series.buckets,
+        devices=[
+            DeviceSeriesEntry(id=d.id, name=d.name, values=d.values)
+            for d in series.devices
+        ],
+        unassigned=series.unassigned,
     )
 
 

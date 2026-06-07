@@ -1,9 +1,11 @@
 import type {
   Breakdown,
+  DeviceSeries,
   Granularity,
   Heatmap,
   Meter,
   MeterLatest,
+  MeterStats,
   Metric,
   PhaseSel,
   Plug,
@@ -58,6 +60,12 @@ export const api = {
     ),
   meterSeries: (id: number, params: SeriesParams) =>
     get<Timeseries>(`/api/meters/${id}/timeseries?${seriesQuery(params)}`),
+  meterDeviceSeries: (id: number, granularity: Granularity) =>
+    get<DeviceSeries>(
+      `/api/meters/${id}/device-series?granularity=${granularity}`,
+    ),
+  meterStats: (id: number, windowDays = 30) =>
+    get<MeterStats>(`/api/meters/${id}/stats?window_days=${windowDays}`),
   listPlugs: () => get<Plug[]>("/api/plugs"),
   plugLatest: (id: number) => get<PlugLatest>(`/api/plugs/${id}/latest`),
   setPlugState: (id: number, on: boolean) =>

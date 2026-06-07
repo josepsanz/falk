@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type SeriesParams } from "./api/client";
+import type { Granularity } from "./api/types";
 
 const LATEST_POLL_MS = 60_000;
 
@@ -45,6 +46,28 @@ export function useMeterSeries(
   return useQuery({
     queryKey: ["meter-series", meterId, params],
     queryFn: () => api.meterSeries(meterId!, params),
+    enabled: meterId !== undefined,
+  });
+}
+
+export function useMeterStats(
+  meterId: number | undefined,
+  windowDays: number,
+) {
+  return useQuery({
+    queryKey: ["meter-stats", meterId, windowDays],
+    queryFn: () => api.meterStats(meterId!, windowDays),
+    enabled: meterId !== undefined,
+  });
+}
+
+export function useMeterDeviceSeries(
+  meterId: number | undefined,
+  granularity: Granularity,
+) {
+  return useQuery({
+    queryKey: ["meter-device-series", meterId, granularity],
+    queryFn: () => api.meterDeviceSeries(meterId!, granularity),
     enabled: meterId !== undefined,
   });
 }

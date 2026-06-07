@@ -1,7 +1,8 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 
 import { Backdrop } from "./components/Backdrop";
-import { Dashboard } from "./pages/Dashboard";
+import { Charts } from "./pages/Charts";
+import { General } from "./pages/General";
 import { Plugs } from "./pages/Plugs";
 import { Settings } from "./pages/Settings";
 
@@ -15,7 +16,10 @@ export function App() {
           <span className="brand__name">Falk</span>
         </div>
         <NavLink to="/" end className="navlink">
-          Panell
+          General
+        </NavLink>
+        <NavLink to="/charts" className="navlink">
+          Charts
         </NavLink>
         <NavLink to="/plugs" className="navlink">
           Endolls
@@ -32,7 +36,8 @@ export function App() {
       </nav>
       <main className="content">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<General />} />
+          <Route path="/charts" element={<Charts />} />
           <Route path="/plugs" element={<Plugs />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

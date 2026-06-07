@@ -116,6 +116,40 @@ export interface Heatmap {
   cells: HeatmapCell[];
 }
 
+export interface MeterStats {
+  meter_id: number;
+  window_days: number;
+  samples: number;
+  power_now: number;
+  power_avg: number;
+  power_min: number;
+  power_max: number;
+  power_median: number;
+  power_p95: number;
+  energy_total_kwh: number;
+  energy_daily_avg_kwh: number;
+  energy_today_kwh: number;
+  energy_last7_kwh: number;
+  forecast_next_day_kwh: number;
+  forecast_next_30d_kwh: number;
+  trend_pct: number | null;
+}
+
+export interface DeviceSeriesEntry {
+  id: number;
+  name: string;
+  values: number[];
+}
+
+export interface DeviceSeries {
+  meter_id: number;
+  granularity: Granularity;
+  unit: string;
+  buckets: string[];
+  devices: DeviceSeriesEntry[];
+  unassigned: number[];
+}
+
 export interface TimeseriesPoint {
   bucket: string;
   value: number | null;
