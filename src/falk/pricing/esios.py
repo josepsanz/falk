@@ -5,6 +5,8 @@ import datetime
 
 import logging
 
+import pytz
+import requests
 import pandas as pd
 from sqlalchemy import func, select
 
@@ -15,18 +17,45 @@ from falk.models.pricing import EsiosPrice
 logger = logging.getLogger(__name__)
 
 
-def get_day_prices(date=None):
-    date = date if date else datetime.datetime.now().date()
-    url = f'http://api.esios.ree.es/archives/71/download?date_type=&start_date={date}&end_date={date}'
+def get_day_prices(dt=None):
+    dt = dt if dt else datetime.datetime.now()
+    #url = f'http://api.esios.ree.es/archives/71/download?date_type=&start_date={date}&end_date={date}&locale=es'
+    url = f'http://api.esios.ree.es/archives/71/download?start_date={dt.isoformat()}'
     df = pd.read_excel(url).fillna('')
     columns = df.iloc[:(len(df) - 24)].apply(lambda column: ' '.join(column), axis=0).str.replace('\n', ' ').str.strip().values
     df.columns = columns
     df = df[(len(df) - 24):].reset_index(drop=True)
     df['hour'] = df['Hora'] % 24
     df = df.set_index('hour').sort_index()
+    df['dt_utc'] = pd.to_datetime(df['Hora Día']).dt.tz_localize('UTC') + pd.Series(datetime.timedelta(hours=hour) for hour in df.index)
+    df['dt_local'] =  df['dt_utc'].dt.tz_convert('Europe/Madrid')
 
     df['price_kWh'] = df[df.columns[4]] / 1000
     return df
+
+def get_day_prices_v2(dt=None):
+    dt = dt if dt else datetime.datetime.now().date()
+    response = requests.get(f'https://api.esios.ree.es/indicators/1001')
+    response.raise_for_status()
+
+    data = response.json()
+    df = pd.DataFrame(data['indicator']['values'])
+    df = df[df['geo_id'] == 8741]
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    df['datetime_utc'] = pd.to_datetime(df['datetime_utc'])
+    df = df.sort_values('datetime').reset_index()
+    df['price_kWh'] = df['value'] / 1000
+
+    return df
+
+def get_price(df, dt=None, tz=None):
+    dt = dt if dt else datetime.datetime.now()
+    dt = datetime.datetime(year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
+
+    tz = tz if tz else pytz.timezone('Europe/Madrid')
+    dt_aware = tz.localize(dt)
+    
+    return df.loc[dt_aware.hour]
 
 
 def save_day_prices(date: datetime.date | None = None) -> int:

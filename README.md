@@ -143,6 +143,9 @@ then in Crontab:
 
 [EnergiaXXI](https://www.energiaxxi.com/)
 [EIOS REE](https://www.esios.ree.es/es)
-[EIOS REE daily prices](api.esios.ree.es/archives/71/download)
+[EIOS REE API](https://api.esios.ree.es/)
+[EIOS REE daily prices](http://api.esios.ree.es/archives/71/download)
+[EIOS REE daily prices v2](https://api.esios.ree.es/indicators/1001)
+
 
 
