@@ -25,7 +25,7 @@ def get_day_prices(dt=None):
     columns = df.iloc[:(len(df) - 24)].apply(lambda column: ' '.join(column), axis=0).str.replace('\n', ' ').str.strip().values
     df.columns = columns
     df = df[(len(df) - 24):].reset_index(drop=True)
-    df['hour'] = df['Hora'] % 24
+    df['hour'] = df['Hora'] 
     df = df.set_index('hour').sort_index()
     df['dt_utc'] = pd.to_datetime(df['Hora Día']).dt.tz_localize('UTC') + pd.Series(datetime.timedelta(hours=hour) for hour in df.index)
     df['dt_local'] =  df['dt_utc'].dt.tz_convert('Europe/Madrid')
@@ -43,7 +43,7 @@ def get_day_prices_v2(dt=None):
     df = df[df['geo_id'] == 8741]
     df['datetime'] = pd.to_datetime(df['datetime'])
     df['datetime_utc'] = pd.to_datetime(df['datetime_utc'])
-    df = df.sort_values('datetime').reset_index()
+    df = df.sort_values('datetime').reset_index(drop=True)
     df['price_kWh'] = df['value'] / 1000
 
     return df
