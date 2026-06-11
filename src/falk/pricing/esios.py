@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 import datetime
+from zoneinfo import ZoneInfo
 
 import logging
 
-import pytz
 import requests
 import pandas as pd
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from falk.db import session_factory
 from falk.models.pricing import EsiosPrice
@@ -35,7 +35,7 @@ def get_day_prices(dt=None):
 
 def get_day_prices_v2(dt=None):
     dt = dt if dt else datetime.datetime.now().date()
-    response = requests.get(f'https://api.esios.ree.es/indicators/1001')
+    response = requests.get('https://api.esios.ree.es/indicators/1001')
     response.raise_for_status()
 
     data = response.json()
@@ -79,78 +79,50 @@ def get_price(df, dt=None, tz=None):
     dt = dt if dt else datetime.datetime.now()
     dt = datetime.datetime(year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
 
-    tz = tz if tz else pytz.timezone('Europe/Madrid')
-    dt_aware = tz.localize(dt)
-    
+    # Uses stdlib zoneinfo (replaced pytz, which was never a declared dependency).
+    tz = tz if tz else ZoneInfo('Europe/Madrid')
+    dt_aware = dt.replace(tzinfo=tz)
+
     return df.loc[dt_aware.hour]
 
 
 def save_day_prices(date: datetime.date | None = None) -> int:
-    """Fetch and persist PVPC hourly prices for one day.
+    """Fetch and persist PVPC hourly prices (ESIOS indicator 1001) for one day.
 
     Args:
         date: Date to fetch. Defaults to today.
 
     Returns:
-        Number of rows inserted (0 if already present, skips silently).
+        Number of new rows inserted (rows already present are skipped).
     """
-    df = get_day_prices(date)
-    pricing_date = pd.Timestamp(df.iloc[0, 0]).date()
+    df = get_day_prices_v2(date)
 
     Session = session_factory()
     with Session() as session:
-        existing = session.scalar(
-            select(func.count()).where(EsiosPrice.date == pricing_date)
-        )
-        if existing:
-            logger.info("ESIOS prices for %s already stored, skipping", pricing_date)
-            return 0
-
-        def _f(v: object) -> float:
-            return float(v) if v != "" else 0.0
-
-        prices = [
+        rows = [
             EsiosPrice(
-                date=pricing_date,
-                hour=int(hour),
-                tariff=str(row.iloc[2]),
-                period=int(row.iloc[3]),
-                feu=_f(row.iloc[4]),
-                teu=_f(row.iloc[5]),
-                tcu=_f(row.iloc[6]),
-                perd=_f(row.iloc[7]),
-                perd_std=_f(row.iloc[8]),
-                cp=_f(row.iloc[9]),
-                oc=_f(row.iloc[10]),
-                os_fin=_f(row.iloc[11]),
-                om_fin=_f(row.iloc[12]),
-                cap=_f(row.iloc[13]),
-                interrup=_f(row.iloc[14]),
-                renew_bal=_f(row.iloc[15]),
-                ccv_rcv=_f(row.iloc[16]),
-                ccv_rfe=_f(row.iloc[17]),
-                ccv_rmr=_f(row.iloc[18]),
-                ccv_ru=_f(row.iloc[19]),
-                sah=_f(row.iloc[20]),
-                adj_other=_f(row.iloc[21]),
-                dev_cost=_f(row.iloc[22]),
-                band_cost=_f(row.iloc[23]),
-                dem_resp=_f(row.iloc[24]),
-                tech_rest=_f(row.iloc[25]),
-                pmh=_f(row.iloc[26]),
-                intra1=_f(row.iloc[27]),
-                spot=_f(row.iloc[28]),
-                tah=_f(row.iloc[29]),
-                futures=_f(row.iloc[30]),
-                fch=_f(row.iloc[31]),
-                profile=_f(row.iloc[32]),
-                price_kwh=_f(row.iloc[33]),
+                datetime_utc=row["tz_utc"].tz_localize(None).to_pydatetime(),
+                datetime_local=row["tz_local"].tz_localize(None).to_pydatetime(),
+                price_kwh=float(row["price_kWh"]),
             )
-            for hour, row in df.iterrows()
+            for _, row in df.iterrows()
         ]
 
-        session.add_all(prices)
+        utcs = [r.datetime_utc for r in rows]
+        existing = set(
+            session.scalars(
+                select(EsiosPrice.datetime_utc).where(
+                    EsiosPrice.datetime_utc.in_(utcs)
+                )
+            )
+        )
+        new_rows = [r for r in rows if r.datetime_utc not in existing]
+        if not new_rows:
+            logger.info("ESIOS prices already stored, skipping")
+            return 0
+
+        session.add_all(new_rows)
         session.commit()
 
-    logger.info("Stored %d ESIOS price rows for %s", len(prices), pricing_date)
-    return len(prices)
+    logger.info("Stored %d ESIOS price rows", len(new_rows))
+    return len(new_rows)

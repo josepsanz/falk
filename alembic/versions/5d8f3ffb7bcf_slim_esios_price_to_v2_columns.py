@@ -1,0 +1,82 @@
+"""slim esios_price to v2 columns
+
+Revision ID: 5d8f3ffb7bcf
+Revises: b2d4b2a81d19
+Create Date: 2026-06-11 02:17:48.226897
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = '5d8f3ffb7bcf'
+down_revision: Union[str, Sequence[str], None] = 'b2d4b2a81d19'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema — drop the 33-column archive-71 table, recreate slim v2 table."""
+    op.drop_table('esios_price')
+    op.create_table('esios_price',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('datetime_utc', sa.DateTime(), nullable=False, comment='Hour timestamp in UTC — tz_utc'),
+    sa.Column('datetime_local', sa.DateTime(), nullable=False, comment='Hour timestamp in Europe/Madrid — tz_local'),
+    sa.Column('price_kwh', sa.Float(), nullable=False, comment='PVPC price in €/kWh — value / 1000'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('datetime_utc', name='uq_esios_price_datetime_utc')
+    )
+    with op.batch_alter_table('esios_price', schema=None) as batch_op:
+        batch_op.create_index('ix_esios_price_datetime_utc', ['datetime_utc'], unique=False)
+
+
+def downgrade() -> None:
+    """Downgrade schema — recreate the original archive-71 table."""
+    with op.batch_alter_table('esios_price', schema=None) as batch_op:
+        batch_op.drop_index('ix_esios_price_datetime_utc')
+
+    op.drop_table('esios_price')
+    op.create_table('esios_price',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False, comment='Pricing date — Hora Día'),
+    sa.Column('hour', sa.Integer(), nullable=False, comment='Hour of day 0–23 — Hora % 24'),
+    sa.Column('tariff', sa.String(length=16), nullable=False, comment="Electricity tariff access type, e.g. '2.0TD' — Peaje"),
+    sa.Column('period', sa.Integer(), nullable=False, comment='Pricing period number — Periodo'),
+    sa.Column('feu', sa.Float(), nullable=False, comment='PVPC final energy price FEU = TEU + TCU (€/MWh consumed) — Término energía PVPC FEU'),
+    sa.Column('teu', sa.Float(), nullable=False, comment='Tolls and charges component TEU (€/MWh consumed) — Peajes y cargos TEU'),
+    sa.Column('tcu', sa.Float(), nullable=False, comment='Production price adjusted for network losses TCU = CP×(1+PERD/100) (€/MWh consumed) — Precio producción TCU'),
+    sa.Column('perd', sa.Float(), nullable=False, comment='PVPC loss coefficient % — Coeficiente pérdidas PVPC PERD'),
+    sa.Column('perd_std', sa.Float(), nullable=False, comment='Standard loss coefficient % — % coeficiente pérdidas estándar'),
+    sa.Column('cp', sa.Float(), nullable=False, comment='Total production cost CP (€/MWh bc) — Total Coste producción CP'),
+    sa.Column('oc', sa.Float(), nullable=False, comment='Other costs total OC (€/MWh bc) — Otros costes Total OC'),
+    sa.Column('os_fin', sa.Float(), nullable=False, comment='OS financing cost (€/MWh bc) — Financiación OS'),
+    sa.Column('om_fin', sa.Float(), nullable=False, comment='OM financing cost (€/MWh bc) — Financiación OM'),
+    sa.Column('cap', sa.Float(), nullable=False, comment='Capacity charge (€/MWh bc) — Cargo capacidad'),
+    sa.Column('interrup', sa.Float(), nullable=False, comment='Interruptibility service cost (€/MWh bc) — Servicio interrumpibilidad'),
+    sa.Column('renew_bal', sa.Float(), nullable=False, comment='Renewable auctions surplus/deficit (€/MWh bc) — Excedente o deficit subastas renovables'),
+    sa.Column('ccv_rcv', sa.Float(), nullable=False, comment='Commercialization cost RCVtovph (€/MWh bc) — CCVh RCVtovph'),
+    sa.Column('ccv_rfe', sa.Float(), nullable=False, comment='Commercialization cost RFE (€/MWh bc) — CCVh RFE'),
+    sa.Column('ccv_rmr', sa.Float(), nullable=False, comment='Commercialization cost RMRv (€/MWh bc) — CCVh RMRv'),
+    sa.Column('ccv_ru', sa.Float(), nullable=False, comment='Unit commercialization cost Runitaria (€/MWh bc) — CCVh Runitaria'),
+    sa.Column('sah', sa.Float(), nullable=False, comment='System adjustment total SAH (€/MWh bc) — Total SAH'),
+    sa.Column('adj_other', sa.Float(), nullable=False, comment='System adjustment other markets (€/MWh bc) — Mercados ajuste sistema Otros sistema'),
+    sa.Column('dev_cost', sa.Float(), nullable=False, comment='Deviation cost (€/MWh bc) — Coste desvíos'),
+    sa.Column('band_cost', sa.Float(), nullable=False, comment='Band service cost (€/MWh bc) — Coste banda'),
+    sa.Column('dem_resp', sa.Float(), nullable=False, comment='Active demand response cost (€/MWh) — Coste respuesta activa demanda'),
+    sa.Column('tech_rest', sa.Float(), nullable=False, comment='Daily technical restrictions cost (€/MWh bc) — Coste restricciones técnicas diario'),
+    sa.Column('pmh', sa.Float(), nullable=False, comment='Daily + intraday markets total PMH (€/MWh bc) — Mercados diario e intradiario 1 Total PMH'),
+    sa.Column('intra1', sa.Float(), nullable=False, comment='Intraday market component 1 (€/MWh bc) — Componente intradiario 1'),
+    sa.Column('spot', sa.Float(), nullable=False, comment='Day-ahead spot market price (€/MWh bc) — Mercado diario'),
+    sa.Column('tah', sa.Float(), nullable=False, comment='Forward markets total TAH (€/MWh bc) — Mercados a plazo Total TAH'),
+    sa.Column('futures', sa.Float(), nullable=False, comment='Futures market component (€/MWh) — Componente Mercados a futuro'),
+    sa.Column('fch', sa.Float(), nullable=False, comment='Energy correction factor FCh — Factor corrección por energía FCh'),
+    sa.Column('profile', sa.Float(), nullable=False, comment='Profile coefficient — Perfil Coeficiente perfilado'),
+    sa.Column('price_kwh', sa.Float(), nullable=False, comment='Final PVPC price in €/kWh — FEU / 1000'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('date', 'hour', name='uq_esios_price_date_hour')
+    )
+    with op.batch_alter_table('esios_price', schema=None) as batch_op:
+        batch_op.create_index('ix_esios_price_date', ['date'], unique=False)
