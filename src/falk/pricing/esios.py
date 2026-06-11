@@ -46,7 +46,34 @@ def get_day_prices_v2(dt=None):
     df = df.sort_values('datetime').reset_index(drop=True)
     df['price_kWh'] = df['value'] / 1000
 
-    return df
+    df = df.rename(columns={'datetime': 'tz_local', 'datetime_utc': 'tz_utc'})
+    return df[['tz_local', 'tz_utc',  'price_kWh']]
+
+def get_day_prices_with_token(token, dt=None):
+    dt = dt if dt else datetime.datetime.now().date()
+    headers = {'x-api-key': token, 'Accept': 'application/json'}
+
+    url = 'https://api.esios.ree.es/indicators/1001'
+    params = {
+        'start_date': f'{dt}T00:00:00',
+        'end_date':   f'{dt}T23:59:59',
+        'geo_ids[]':  '8741'  # Península
+    }
+    
+    response = requests.get(url, headers=headers, params=params)
+    response.raise_for_status()
+    data = response.json()
+    
+    df = pd.DataFrame(data['indicator']['values'])
+    df = df[df['geo_id'] == 8741]
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    df['datetime_utc'] = pd.to_datetime(df['datetime_utc'])
+    df = df.sort_values('datetime').reset_index(drop=True)
+    df['price_kWh'] = df['value'] / 1000
+
+    df = df.rename(columns={'datetime': 'tz_local', 'datetime_utc': 'tz_utc'})
+    return df[['tz_local', 'tz_utc',  'price_kWh']]
+
 
 def get_price(df, dt=None, tz=None):
     dt = dt if dt else datetime.datetime.now()
