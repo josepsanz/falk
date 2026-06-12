@@ -10,6 +10,7 @@ import requests
 import pandas as pd
 from sqlalchemy import select
 
+from falk.config import load_config
 from falk.db import session_factory
 from falk.models.pricing import EsiosPrice
 
@@ -95,15 +96,16 @@ def save_day_prices(date: datetime.date | None = None) -> int:
     Returns:
         Number of new rows inserted (rows already present are skipped).
     """
-    df = get_day_prices_v2(date)
+    token = load_config()["esios"]["token"]
+    df = get_day_prices_with_token(token, date)
 
     Session = session_factory()
     with Session() as session:
         rows = [
             EsiosPrice(
-                datetime_utc=row["tz_utc"].tz_localize(None).to_pydatetime(),
-                datetime_local=row["tz_local"].tz_localize(None).to_pydatetime(),
-                price_kwh=float(row["price_kWh"]),
+                datetime_utc=row['tz_utc'].tz_localize(None).to_pydatetime(),
+                datetime_local=row['tz_local'].tz_localize(None).to_pydatetime(),
+                price_kwh=float(row['price_kWh']),
             )
             for _, row in df.iterrows()
         ]
@@ -118,11 +120,11 @@ def save_day_prices(date: datetime.date | None = None) -> int:
         )
         new_rows = [r for r in rows if r.datetime_utc not in existing]
         if not new_rows:
-            logger.info("ESIOS prices already stored, skipping")
+            logger.info('ESIOS prices already stored, skipping')
             return 0
 
         session.add_all(new_rows)
         session.commit()
 
-    logger.info("Stored %d ESIOS price rows", len(new_rows))
+    logger.info(f'Stored {len(new_rows)} ESIOS price rows')
     return len(new_rows)

@@ -1,5 +1,6 @@
 import logging
 import argparse
+import datetime
 import os
 
 from sqlalchemy import create_engine, select
@@ -10,6 +11,7 @@ from falk.db import session_factory
 from falk.iot.tuya import Switch
 from falk.iot.shelly import EnergyMeter
 from falk.models import devices as db_devices
+from falk.pricing.esios import save_day_prices
 
 LOGGER_NAME = 'falk.telemetry'
 logger = logging.getLogger(LOGGER_NAME)
@@ -32,9 +34,20 @@ def set_logger(log_file, level):
     logger.propagate = False
 
 def get_arguments():
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument('--devices-file', type=str, default='devices.yaml', help='Devices file.')
+    common.add_argument('-v', '--verbose', action='store_true', help='Show more info.')
+
     parser = argparse.ArgumentParser(description='Falk Telemetry')
-    parser.add_argument('--devices-file', type=str, default='devices.yaml', help='Devices file.')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Show more info.')
+    subparsers = parser.add_subparsers(dest='command', required=True)
+
+    subparsers.add_parser('poll', parents=[common], help='Poll all enabled devices and store metrics.')
+
+    pricing_parser = subparsers.add_parser('pricing', parents=[common], help='Fetch and store ESIOS PVPC hourly prices.')
+    pricing_parser.add_argument(
+        '--date', type=datetime.date.fromisoformat, default=None,
+        help='Day to fetch (YYYY-MM-DD). Defaults to today.',
+    )
     return parser.parse_args()
 
 def tuya_switch_telemetry(session, device):
@@ -107,17 +120,12 @@ def shelly_em_telemetry(session, device):
         logger.warning('Something wrong! Skip!', exc_info=True)
     
 
-def main():
+def run_poll():
     DEVICE_DISPATCHER = {
         'tuya-smart-plug': tuya_switch_telemetry,
         'shelly-3em-63w': shelly_em_telemetry
     }
 
-    arguments = get_arguments()
-    level = logging.DEBUG if arguments.verbose else logging.INFO
-    set_logger('telemetry.log', level)
-
-    os.environ[DEVICES_FILE_ENV] = arguments.devices_file
     devices = load_config()
 
     Session = session_factory()
@@ -127,7 +135,19 @@ def main():
             if device['enabled']:
                 device_telemetry_fn = DEVICE_DISPATCHER[device['type']]
                 device_telemetry_fn(session, device)
-    
+
+def main():
+    arguments = get_arguments()
+    level = logging.DEBUG if arguments.verbose else logging.INFO
+    set_logger('telemetry.log', level)
+
+    os.environ[DEVICES_FILE_ENV] = arguments.devices_file
+
+    if arguments.command == 'poll':
+        run_poll()
+    elif arguments.command == 'pricing':
+        save_day_prices(arguments.date)
+
     logger.info('Done!')
 
 def add_switch_device(uri, name, ip, tuya_id, local_key, version):
