@@ -122,9 +122,19 @@ export function CostChart({
           fontFamily: MONO,
           fontSize: 10.5,
           hideOverlap: true,
-          // Bucket is "YYYY-MM-DD HH:00:00"; show just "HH:00" for a single day.
+          // Bucket is "YYYY-MM-DD HH:00:00"; show just "HH:00", but mark the day
+          // change with the weekday so the two days don't blur together.
           formatter: hourOnly
-            ? (value: string) => value.split(" ")[1]?.slice(0, 5) ?? value
+            ? (value: string) => {
+                const [date, time] = value.split(" ");
+                const hm = time?.slice(0, 5) ?? value;
+                if (hm !== "00:00") return hm;
+                const [y, m, d] = date.split("-").map(Number);
+                const wd = new Date(y, m - 1, d).toLocaleDateString("ca-ES", {
+                  weekday: "short",
+                });
+                return `${wd} ${hm}`;
+              }
             : undefined,
         },
       },

@@ -23,6 +23,21 @@ function localMidnightIso(offsetDays = 0): string {
   return `${year}-${month}-${day}T00:00:00`;
 }
 
+// Drop trailing hours with neither energy nor a published price so the chart
+// only extends as far ahead as ESIOS data actually exists in the DB.
+function trimTrailingEmpty(series: CostSeries): CostSeries {
+  const pts = series.points;
+  let end = pts.length;
+  while (
+    end > 0 &&
+    pts[end - 1].price_kwh == null &&
+    pts[end - 1].energy_kwh == null
+  ) {
+    end--;
+  }
+  return end === pts.length ? series : { ...series, points: pts.slice(0, end) };
+}
+
 function CostSummary({ series }: { series: CostSeries }) {
   return (
     <div className="stat-grid cost-summary">
@@ -55,14 +70,15 @@ export function Cost() {
   const { data: meters } = useMeters();
   const meterId = meters?.[0]?.id;
 
-  // Span the whole day (to tomorrow's midnight) so future hours with a published
-  // price but no consumption yet still render on the price line.
+  // Span up to 48h (today + tomorrow) so the price line extends ahead once ESIOS
+  // publishes tomorrow's prices; trailing hours without data are trimmed below.
   const { data: today } = useMeterCostSeries(
     meterId,
     "hour",
     localMidnightIso(),
-    localMidnightIso(1),
+    localMidnightIso(2),
   );
+  const todayTrimmed = today ? trimTrailingEmpty(today) : undefined;
 
   const [windowDays, setWindowDays] = useState(7);
   const { data: history } = useMeterCostSeries(
@@ -86,10 +102,15 @@ export function Cost() {
           <span className="card-eyebrow">Avui</span>
           <h2>Consum i preu per hora</h2>
         </div>
-        {today ? (
+        {todayTrimmed ? (
           <>
-            <CostSummary series={today} />
-            <CostChart series={today} valueKey="energy_kwh" hourOnly colorByPrice />
+            <CostSummary series={todayTrimmed} />
+            <CostChart
+              series={todayTrimmed}
+              valueKey="energy_kwh"
+              hourOnly
+              colorByPrice
+            />
           </>
         ) : (
           <div className="placeholder">Carregant consum d'avui…</div>
