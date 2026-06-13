@@ -148,7 +148,7 @@ def main():
     elif arguments.command == 'pricing':
         save_day_prices(arguments.date)
 
-    logger.info('Done!')
+    logger.info(f"'{arguments.command}' metrics stored!")
 
 def add_switch_device(uri, name, ip, tuya_id, local_key, version):
     engine = create_engine(uri)
