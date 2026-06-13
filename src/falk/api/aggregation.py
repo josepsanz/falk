@@ -15,6 +15,7 @@ from sqlalchemy import Integer, Select, func, select
 from sqlalchemy.orm import Session, aliased
 
 from falk.models.devices import EMMetric, Phase, SmartSwitch, SwitchMetric
+from falk.models.pricing import EsiosPrice
 
 from .schemas import Granularity, Metric, PhaseSel, TimeseriesPoint
 
@@ -344,6 +345,141 @@ def meter_timeseries(
         rows = _meter_energy_rows(session, meter_id, phase, granularity, time_range)
         unit = "kWh"
     return unit, _densify(rows, granularity, time_range)
+
+
+_HOUR_FORMAT = _STRFTIME_FORMAT[Granularity.hour]
+
+
+@dataclass(frozen=True, slots=True)
+class CostPoint:
+    """One bucket's energy, effective price and resulting cost.
+
+    Any field is ``None`` when the bucket has no data (no metered energy, or no
+    ESIOS price covering its hours).
+    """
+
+    bucket: str
+    energy_kwh: float | None
+    price_kwh: float | None
+    cost_eur: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class CostSeries:
+    """A bucketed cost series plus its window totals."""
+
+    points: list[CostPoint]
+    total_energy_kwh: float
+    total_cost_eur: float
+    avg_price_kwh: float
+
+
+def _hourly_prices(session: Session, time_range: TimeRange) -> dict[str, float]:
+    """Map each hour in the range to its PVPC price (€/kWh), keyed by hour label.
+
+    Keys match the hourly bucket labels produced for the meter energy, so the two
+    can be crossed directly. ESIOS ``datetime_local`` is naive Europe/Madrid, the
+    same wall-clock basis as the meter's ``recorded_at``.
+    """
+    rows = session.execute(
+        select(EsiosPrice.datetime_local, EsiosPrice.price_kwh).where(
+            EsiosPrice.datetime_local >= time_range.start,
+            EsiosPrice.datetime_local < time_range.end,
+        )
+    ).all()
+    return {moment.strftime(_HOUR_FORMAT): float(price) for moment, price in rows}
+
+
+def meter_cost_series(
+    session: Session,
+    meter_id: int,
+    *,
+    granularity: Granularity,
+    time_range: TimeRange,
+) -> CostSeries:
+    """Cross the meter's energy with hourly PVPC prices into a cost series.
+
+    Cost is computed at hourly resolution (energy × price) — the granularity at
+    which the price is defined — then rolled up to the requested bucket size. A
+    bucket's price is the energy-weighted average over its priced hours, so at
+    hourly granularity it equals the PVPC price; falling back to a plain mean for
+    buckets that consumed nothing, so the price line still renders.
+    """
+    hourly_energy = _meter_energy_rows(
+        session, meter_id, PhaseSel.total, Granularity.hour, time_range
+    )
+    prices = _hourly_prices(session, time_range)
+
+    energy_by_bucket: dict[str, float] = defaultdict(float)
+    cost_by_bucket: dict[str, float] = defaultdict(float)
+    priced_energy_by_bucket: dict[str, float] = defaultdict(float)
+    price_sum_by_bucket: dict[str, float] = defaultdict(float)
+    price_count_by_bucket: dict[str, int] = defaultdict(int)
+
+    fmt = _STRFTIME_FORMAT[granularity]
+    for hour_label in set(hourly_energy) | set(prices):
+        bucket = datetime.datetime.strptime(hour_label, _HOUR_FORMAT).strftime(fmt)
+        kwh = hourly_energy.get(hour_label)
+        if kwh is not None:
+            energy_by_bucket[bucket] += kwh
+        price = prices.get(hour_label)
+        if price is None:
+            continue
+        # Record the price for every priced hour — including future hours of the
+        # current day that have no metered energy yet — so the price line extends
+        # ahead. Cost only accrues where there is actual consumption.
+        price_sum_by_bucket[bucket] += price
+        price_count_by_bucket[bucket] += 1
+        if kwh is not None:
+            cost_by_bucket[bucket] += kwh * price
+            priced_energy_by_bucket[bucket] += kwh
+
+    points: list[CostPoint] = []
+    for moment in _iter_buckets(time_range, granularity):
+        label = moment.strftime(fmt)
+        points.append(
+            _cost_point(
+                label,
+                energy=energy_by_bucket.get(label),
+                cost=cost_by_bucket.get(label),
+                priced_energy=priced_energy_by_bucket.get(label, 0.0),
+                price_sum=price_sum_by_bucket.get(label, 0.0),
+                price_count=price_count_by_bucket.get(label, 0),
+            )
+        )
+
+    total_energy = sum(energy_by_bucket.values())
+    total_cost = sum(cost_by_bucket.values())
+    avg_price = total_cost / total_energy if total_energy > 0 else 0.0
+    return CostSeries(
+        points=points,
+        total_energy_kwh=round(total_energy, 3),
+        total_cost_eur=round(total_cost, 3),
+        avg_price_kwh=round(avg_price, 4),
+    )
+
+
+def _cost_point(
+    label: str,
+    *,
+    energy: float | None,
+    cost: float | None,
+    priced_energy: float,
+    price_sum: float,
+    price_count: int,
+) -> CostPoint:
+    if price_count == 0:
+        price = None
+    elif priced_energy > 0:
+        price = (cost or 0.0) / priced_energy
+    else:
+        price = price_sum / price_count
+    return CostPoint(
+        bucket=label,
+        energy_kwh=round(energy, 3) if energy is not None else None,
+        price_kwh=round(price, 4) if price is not None else None,
+        cost_eur=round(cost, 3) if cost is not None else None,
+    )
 
 
 _ACTIVE_THRESHOLD_W = 1.0

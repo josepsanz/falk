@@ -783,6 +783,31 @@ body::after {
   gap: 12px;
 }
 
+/* Numeric value boxes sitting above a chart: keep clear of its legend. */
+.cost-summary {
+  margin: 14px 0 28px;
+}
+
+.legend-defs {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 8px 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.legend-defs dt {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.legend-defs dd {
+  margin: 0;
+  color: var(--text-faint);
+}
+
 .stat {
   background: rgba(4, 7, 10, 0.6);
   border: 1px solid var(--border);

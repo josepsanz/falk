@@ -223,6 +223,29 @@ class DeviceSeriesOut(BaseModel):
     unassigned: list[float]
 
 
+class CostPoint(BaseModel):
+    """One bucket's energy (kWh), effective price (€/kWh) and cost (€).
+
+    Any field is null for buckets without metered energy or without a price.
+    """
+
+    bucket: str
+    energy_kwh: float | None
+    price_kwh: float | None
+    cost_eur: float | None
+
+
+class CostSeriesOut(BaseModel):
+    """Meter energy crossed with PVPC prices, bucketed, plus window totals."""
+
+    meter_id: int
+    granularity: Granularity
+    points: list[CostPoint]
+    total_energy_kwh: float
+    total_cost_eur: float
+    avg_price_kwh: float
+
+
 class TimeseriesPoint(BaseModel):
     """A single bucketed value. ``value`` is null for buckets without data."""
 

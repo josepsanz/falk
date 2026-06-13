@@ -13,6 +13,7 @@ from ..aggregation import (
     consumption_breakdown,
     device_energy_series,
     device_ranking,
+    meter_cost_series,
     meter_statistics,
     meter_timeseries,
 )
@@ -20,6 +21,8 @@ from ..deps import DeviceSeriesQueryDep, MeterSeriesQueryDep, SessionDep
 from ..schemas import (
     BreakdownDevice,
     BreakdownOut,
+    CostPoint,
+    CostSeriesOut,
     DeviceSeriesEntry,
     DeviceSeriesOut,
     MeterLatestOut,
@@ -173,6 +176,35 @@ def meter_device_series(
             for d in series.devices
         ],
         unassigned=series.unassigned,
+    )
+
+
+@router.get("/{meter_id}/cost-series")
+def meter_cost(
+    meter_id: int, query: DeviceSeriesQueryDep, session: SessionDep
+) -> CostSeriesOut:
+    """Return the meter's energy crossed with hourly PVPC prices (cost in €)."""
+    series = meter_cost_series(
+        session,
+        meter_id,
+        granularity=query.granularity,
+        time_range=query.time_range,
+    )
+    return CostSeriesOut(
+        meter_id=meter_id,
+        granularity=query.granularity,
+        points=[
+            CostPoint(
+                bucket=point.bucket,
+                energy_kwh=point.energy_kwh,
+                price_kwh=point.price_kwh,
+                cost_eur=point.cost_eur,
+            )
+            for point in series.points
+        ],
+        total_energy_kwh=series.total_energy_kwh,
+        total_cost_eur=series.total_cost_eur,
+        avg_price_kwh=series.avg_price_kwh,
     )
 
 

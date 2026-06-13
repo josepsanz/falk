@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 
 import { Backdrop } from "./components/Backdrop";
 import { Charts } from "./pages/Charts";
+import { Cost } from "./pages/Cost";
 import { General } from "./pages/General";
 import { Plugs } from "./pages/Plugs";
 import { Settings } from "./pages/Settings";
@@ -21,6 +22,9 @@ export function App() {
         <NavLink to="/charts" className="navlink">
           Charts
         </NavLink>
+        <NavLink to="/cost" className="navlink">
+          Cost
+        </NavLink>
         <NavLink to="/plugs" className="navlink">
           Endolls
         </NavLink>
@@ -38,6 +42,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<General />} />
           <Route path="/charts" element={<Charts />} />
+          <Route path="/cost" element={<Cost />} />
           <Route path="/plugs" element={<Plugs />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

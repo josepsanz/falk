@@ -61,6 +61,19 @@ export function useMeterStats(
   });
 }
 
+export function useMeterCostSeries(
+  meterId: number | undefined,
+  granularity: Granularity,
+  from?: string,
+  to?: string,
+) {
+  return useQuery({
+    queryKey: ["meter-cost-series", meterId, granularity, from, to],
+    queryFn: () => api.meterCostSeries(meterId!, granularity, from, to),
+    enabled: meterId !== undefined,
+  });
+}
+
 export function useMeterDeviceSeries(
   meterId: number | undefined,
   granularity: Granularity,

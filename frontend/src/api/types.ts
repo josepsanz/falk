@@ -150,6 +150,22 @@ export interface DeviceSeries {
   unassigned: number[];
 }
 
+export interface CostPoint {
+  bucket: string;
+  energy_kwh: number | null;
+  price_kwh: number | null;
+  cost_eur: number | null;
+}
+
+export interface CostSeries {
+  meter_id: number;
+  granularity: Granularity;
+  points: CostPoint[];
+  total_energy_kwh: number;
+  total_cost_eur: number;
+  avg_price_kwh: number;
+}
+
 export interface TimeseriesPoint {
   bucket: string;
   value: number | null;

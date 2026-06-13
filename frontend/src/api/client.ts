@@ -1,5 +1,6 @@
 import type {
   Breakdown,
+  CostSeries,
   DeviceSeries,
   Granularity,
   Heatmap,
@@ -66,6 +67,17 @@ export const api = {
     ),
   meterStats: (id: number, windowDays = 30) =>
     get<MeterStats>(`/api/meters/${id}/stats?window_days=${windowDays}`),
+  meterCostSeries: (
+    id: number,
+    granularity: Granularity,
+    from?: string,
+    to?: string,
+  ) =>
+    get<CostSeries>(
+      `/api/meters/${id}/cost-series?granularity=${granularity}` +
+        (from ? `&from=${encodeURIComponent(from)}` : "") +
+        (to ? `&to=${encodeURIComponent(to)}` : ""),
+    ),
   listPlugs: () => get<Plug[]>("/api/plugs"),
   plugLatest: (id: number) => get<PlugLatest>(`/api/plugs/${id}/latest`),
   setPlugState: (id: number, on: boolean) =>
