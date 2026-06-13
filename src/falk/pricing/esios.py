@@ -97,6 +97,7 @@ def save_day_prices(date: datetime.date | None = None) -> int:
         Number of new rows inserted (rows already present are skipped).
     """
     token = load_config()["esios"]["token"]
+    date = date if date else (datetime.datetime.today().date() + datetime.timedelta(days=1))
     df = get_day_prices_with_token(token, date)
 
     Session = session_factory()
