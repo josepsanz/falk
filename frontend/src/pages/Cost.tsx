@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { CostSeries } from "../api/types";
 import { CostChart } from "../components/CostChart";
 import { Segmented } from "../components/Controls";
-import { useMeterCostSeries, useMeters } from "../hooks";
+import { useMeterCostSeries, useMeterDeviceSeries, useMeters } from "../hooks";
 
 // The point of this view is spotting whether consumption fell on expensive or
 // cheap hours, so everything stays at hourly resolution — the historical card
@@ -12,15 +12,31 @@ const WINDOW_OPTIONS = [
   { value: "2", label: "2 dies" },
   { value: "7", label: "7 dies" },
   { value: "30", label: "30 dies" },
+  { value: "custom", label: "Personalitzat" },
+];
+
+const BREAKDOWN_OPTIONS = [
+  { value: "total", label: "Total" },
+  { value: "device", label: "Per dispositiu" },
 ];
 
 function localMidnightIso(offsetDays = 0): string {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
+  return `${ymd(date)}T00:00:00`;
+}
+
+function ymd(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}T00:00:00`;
+  return `${year}-${month}-${day}`;
+}
+
+// Exclusive end: the midnight after the chosen "to" day, so the whole day counts.
+function dayAfter(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return `${ymd(new Date(y, m - 1, d + 1))}T00:00:00`;
 }
 
 // Drop trailing hours with neither energy nor a published price so the chart
@@ -80,12 +96,37 @@ export function Cost() {
   );
   const todayTrimmed = today ? trimTrailingEmpty(today) : undefined;
 
-  const [windowDays, setWindowDays] = useState(7);
-  const { data: history } = useMeterCostSeries(
+  // Per-device breakdown for today, on the same hourly range so the buckets align
+  // with the cost series; rendered as stacked bars when the toggle is on.
+  const [breakdown, setBreakdown] = useState(false);
+  const { data: todayDevices } = useMeterDeviceSeries(
     meterId,
     "hour",
-    localMidnightIso(-(windowDays - 1)),
-    localMidnightIso(1),
+    localMidnightIso(),
+    localMidnightIso(2),
+  );
+
+  const [windowMode, setWindowMode] = useState("7");
+  const [customFrom, setCustomFrom] = useState(() => localMidnightIso(-6).slice(0, 10));
+  const [customTo, setCustomTo] = useState(() => localMidnightIso(0).slice(0, 10));
+  const isCustom = windowMode === "custom";
+  const invalidRange = isCustom && customFrom > customTo;
+
+  let historyFrom: string;
+  let historyTo: string;
+  if (isCustom) {
+    historyFrom = `${customFrom}T00:00:00`;
+    historyTo = dayAfter(customTo);
+  } else {
+    const windowDays = Number(windowMode);
+    historyFrom = localMidnightIso(-(windowDays - 1));
+    historyTo = localMidnightIso(1);
+  }
+  const { data: history, error: historyError } = useMeterCostSeries(
+    meterId,
+    "hour",
+    historyFrom,
+    historyTo,
   );
 
   return (
@@ -98,9 +139,17 @@ export function Cost() {
       </header>
 
       <section className="card series-card">
-        <div className="card-head">
-          <span className="card-eyebrow">Avui</span>
-          <h2>Consum i preu per hora</h2>
+        <div className="card-head card-head--row">
+          <div>
+            <span className="card-eyebrow">Avui</span>
+            <h2>Consum i preu per hora</h2>
+          </div>
+          <Segmented
+            label=""
+            value={breakdown ? "device" : "total"}
+            options={BREAKDOWN_OPTIONS}
+            onChange={(value) => setBreakdown(value === "device")}
+          />
         </div>
         {todayTrimmed ? (
           <>
@@ -109,7 +158,8 @@ export function Cost() {
               series={todayTrimmed}
               valueKey="energy_kwh"
               hourOnly
-              colorByPrice
+              colorByPrice={!breakdown}
+              breakdown={breakdown ? todayDevices : undefined}
             />
           </>
         ) : (
@@ -123,14 +173,44 @@ export function Cost() {
             <span className="card-eyebrow">Històric</span>
             <h2>Consum per hora vs preu</h2>
           </div>
-          <Segmented
-            label=""
-            value={String(windowDays)}
-            options={WINDOW_OPTIONS}
-            onChange={(value) => setWindowDays(Number(value))}
-          />
+          <div className="cost-range">
+            {isCustom && (
+              <div className="date-range">
+                <input
+                  type="date"
+                  className="date-input"
+                  value={customFrom}
+                  max={customTo}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                />
+                <span className="date-range__sep">→</span>
+                <input
+                  type="date"
+                  className="date-input"
+                  value={customTo}
+                  min={customFrom}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                />
+              </div>
+            )}
+            <Segmented
+              label=""
+              value={windowMode}
+              options={WINDOW_OPTIONS}
+              onChange={setWindowMode}
+            />
+          </div>
         </div>
-        {history ? (
+        {invalidRange ? (
+          <div className="placeholder">
+            La data d'inici ha de ser anterior o igual a la final.
+          </div>
+        ) : historyError ? (
+          <div className="placeholder">
+            Rang massa gran a resolució horària (màx. ~80 dies). Tria un interval
+            més curt.
+          </div>
+        ) : history ? (
           <>
             <CostSummary series={history} />
             <CostChart series={history} valueKey="energy_kwh" />

@@ -70,9 +70,16 @@ export const api = {
     ),
   meterSeries: (id: number, params: SeriesParams) =>
     get<Timeseries>(`/api/meters/${id}/timeseries?${seriesQuery(params)}`),
-  meterDeviceSeries: (id: number, granularity: Granularity) =>
+  meterDeviceSeries: (
+    id: number,
+    granularity: Granularity,
+    from?: string,
+    to?: string,
+  ) =>
     get<DeviceSeries>(
-      `/api/meters/${id}/device-series?granularity=${granularity}`,
+      `/api/meters/${id}/device-series?granularity=${granularity}` +
+        (from ? `&from=${encodeURIComponent(from)}` : "") +
+        (to ? `&to=${encodeURIComponent(to)}` : ""),
     ),
   meterStats: (id: number, windowDays = 30) =>
     get<MeterStats>(`/api/meters/${id}/stats?window_days=${windowDays}`),

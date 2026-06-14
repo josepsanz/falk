@@ -77,10 +77,12 @@ export function useMeterCostSeries(
 export function useMeterDeviceSeries(
   meterId: number | undefined,
   granularity: Granularity,
+  from?: string,
+  to?: string,
 ) {
   return useQuery({
-    queryKey: ["meter-device-series", meterId, granularity],
-    queryFn: () => api.meterDeviceSeries(meterId!, granularity),
+    queryKey: ["meter-device-series", meterId, granularity, from, to],
+    queryFn: () => api.meterDeviceSeries(meterId!, granularity, from, to),
     enabled: meterId !== undefined,
   });
 }

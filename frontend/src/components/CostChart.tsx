@@ -2,8 +2,8 @@ import ReactEChartsCore from "echarts-for-react/lib/core";
 import { useMemo } from "react";
 
 import echarts from "../charts/echarts";
-import type { CostSeries } from "../api/types";
-import { ACCENTS } from "../theme";
+import type { CostSeries, DeviceSeries } from "../api/types";
+import { ACCENTS, DEVICE_PALETTE, UNASSIGNED_COLOR } from "../theme";
 
 interface CostChartProps {
   series: CostSeries;
@@ -12,6 +12,9 @@ interface CostChartProps {
   hourOnly?: boolean;
   // Tint the area under the price line green→yellow→red by hourly price.
   colorByPrice?: boolean;
+  // When provided, split each energy bar into a stacked per-device breakdown
+  // (plus an "unassigned" slice) instead of a single aggregate bar.
+  breakdown?: DeviceSeries;
 }
 
 const MONO = "JetBrains Mono, monospace";
@@ -64,11 +67,31 @@ const VALUE_META = {
   cost_eur: { unit: "€", label: "Cost" },
 } as const;
 
+// Align a device-series (its own bucket axis) onto the cost-series buckets, so a
+// breakdown stays correct even when the cost series has been trimmed differently.
+function alignDevices(series: CostSeries, breakdown: DeviceSeries) {
+  const buckets = series.points.map((p) => p.bucket);
+  const index = new Map(breakdown.buckets.map((b, i) => [b, i]));
+  const pick = (values: number[]) =>
+    buckets.map((b) => {
+      const i = index.get(b);
+      return i === undefined ? 0 : values[i];
+    });
+  const devices = breakdown.devices.map((d) => ({
+    name: d.name,
+    values: pick(d.values),
+  }));
+  const unassigned = pick(breakdown.unassigned);
+  const hasUnassigned = unassigned.some((v) => v > 0);
+  return { devices, unassigned, hasUnassigned };
+}
+
 export function CostChart({
   series,
   valueKey,
   hourOnly,
   colorByPrice,
+  breakdown,
 }: CostChartProps) {
   const { unit, label } = VALUE_META[valueKey];
 
@@ -78,15 +101,63 @@ export function CostChart({
     const prices = series.points.map((p) => p.price_kwh);
     const priceArea = colorByPrice ? priceAreaGradient(prices) : undefined;
 
+    const split = breakdown ? alignDevices(series, breakdown) : undefined;
+    const barSeries = split
+      ? [
+          ...split.devices.map((d, i) => ({
+            name: d.name,
+            type: "bar" as const,
+            stack: "energy",
+            yAxisIndex: 0,
+            data: d.values,
+            itemStyle: { color: DEVICE_PALETTE[i % DEVICE_PALETTE.length] },
+          })),
+          ...(split.hasUnassigned
+            ? [
+                {
+                  name: "Sense assignar",
+                  type: "bar" as const,
+                  stack: "energy",
+                  yAxisIndex: 0,
+                  data: split.unassigned,
+                  itemStyle: {
+                    color: UNASSIGNED_COLOR,
+                    borderRadius: [3, 3, 0, 0] as [number, number, number, number],
+                  },
+                },
+              ]
+            : []),
+        ]
+      : [
+          {
+            name: label,
+            type: "bar" as const,
+            yAxisIndex: 0,
+            data: values,
+            itemStyle: { color: BAR_ACCENT, borderRadius: [3, 3, 0, 0] },
+          },
+        ];
+    const legendData = split
+      ? [
+          ...split.devices.map((d) => d.name),
+          ...(split.hasUnassigned ? ["Sense assignar"] : []),
+          "Preu",
+        ]
+      : [label, "Preu"];
+
     return {
       textStyle: { fontFamily: MONO },
       grid: { left: 60, right: 56, top: 52, bottom: 60 },
       legend: {
-        data: [label, "Preu"],
+        type: "scroll",
+        data: legendData,
         top: 4,
         right: 8,
         textStyle: { color: "#6f8c80", fontFamily: MONO, fontSize: 10.5 },
         inactiveColor: "#3a4a42",
+        pageIconColor: "#00e676",
+        pageIconInactiveColor: "#3a4a44",
+        pageTextStyle: { color: "#6f8c80", fontFamily: MONO },
       },
       tooltip: {
         trigger: "axis",
@@ -104,12 +175,27 @@ export function CostChart({
               minimumFractionDigits: digits,
               maximumFractionDigits: digits,
             })} ${suffix}`;
-          return [
+          const lines = [
             point.bucket,
             `Energia: ${fmt(point.energy_kwh, "kWh", 2)}`,
+          ];
+          if (split) {
+            const idx = params[0]?.dataIndex ?? 0;
+            for (let i = 0; i < split.devices.length; i++) {
+              const d = split.devices[i];
+              if (d.values[idx] > 0) {
+                lines.push(`· ${d.name}: ${fmt(d.values[idx], "kWh", 2)}`);
+              }
+            }
+            if (split.hasUnassigned && split.unassigned[idx] > 0) {
+              lines.push(`· Sense assignar: ${fmt(split.unassigned[idx], "kWh", 2)}`);
+            }
+          }
+          lines.push(
             `Preu: ${fmt(point.price_kwh, "€/kWh", 4)}`,
             `Cost: ${fmt(point.cost_eur, "€", 2)}`,
-          ].join("<br/>");
+          );
+          return lines.join("<br/>");
         },
       },
       xAxis: {
@@ -173,13 +259,7 @@ export function CostChart({
         },
       ],
       series: [
-        {
-          name: label,
-          type: "bar",
-          yAxisIndex: 0,
-          data: values,
-          itemStyle: { color: BAR_ACCENT, borderRadius: [3, 3, 0, 0] },
-        },
+        ...barSeries,
         {
           name: "Preu",
           type: "line",
@@ -202,7 +282,7 @@ export function CostChart({
         },
       ],
     };
-  }, [series, valueKey, unit, label, hourOnly, colorByPrice]);
+  }, [series, valueKey, unit, label, hourOnly, colorByPrice, breakdown]);
 
   return (
     <ReactEChartsCore
