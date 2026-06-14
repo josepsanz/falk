@@ -7,7 +7,7 @@ datetimes are naive-local (matching how telemetry stores ``recorded_at``).
 import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Metric(StrEnum):
@@ -181,6 +181,29 @@ class PlugStateOut(BaseModel):
 
     plug_id: int
     state: bool
+
+
+class BoostIn(BaseModel):
+    """Requested manual boost: force a plug on/off for a duration."""
+
+    on: bool
+    duration_minutes: int = Field(ge=1, le=1440)
+
+
+class BoostOut(BaseModel):
+    """An active boost on a plug."""
+
+    plug_id: int
+    desired_state: bool
+    until: datetime.datetime
+    remaining_seconds: int
+
+
+class BoostClearOut(BaseModel):
+    """Result of clearing a plug's boost."""
+
+    plug_id: int
+    cleared: bool
 
 
 class MeterStatsOut(BaseModel):

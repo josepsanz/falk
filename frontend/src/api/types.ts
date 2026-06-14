@@ -84,6 +84,13 @@ export interface PlugState {
   state: boolean;
 }
 
+export interface PlugBoost {
+  plug_id: number;
+  desired_state: boolean;
+  until: string;
+  remaining_seconds: number;
+}
+
 export interface PlugStats {
   plug_id: number;
   window_days: number;

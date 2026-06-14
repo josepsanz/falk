@@ -22,6 +22,7 @@ if config.config_file_name is not None:
 from falk.models.base import Base
 from falk.models.devices import SmartSwitch, TuyaSwitch, SwitchMetric, EnergyMeter, ShellyEM, EMMetric
 from falk.models.pricing import EsiosPrice  # noqa: F401
+from falk.models.planning import DeviceSchedule, DeviceOverride  # noqa: F401
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

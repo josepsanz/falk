@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { Granularity, Metric } from "../api/types";
+import { BoostControl } from "../components/BoostControl";
 import { PlugHeatmap } from "../components/PlugHeatmap";
 import { PlugStatsPanel } from "../components/PlugStatsPanel";
 import { TimeSeriesChart } from "../components/TimeSeriesChart";
@@ -10,6 +11,7 @@ import {
   Segmented,
 } from "../components/Controls";
 import {
+  useBoosts,
   usePlugHeatmap,
   usePlugLatest,
   usePlugSeries,
@@ -30,8 +32,13 @@ export function Plugs() {
   }, [plugs, selected]);
 
   const { data: latest } = usePlugLatest(selected);
+  const { data: boosts } = useBoosts();
   const setPlugState = useSetPlugState();
   const selectedPlug = plugs?.find((plug) => plug.id === selected);
+  const boostFor = (plugId: number) =>
+    boosts?.find(
+      (boost) => boost.plug_id === plugId && boost.remaining_seconds > 0,
+    );
   const [metric, setMetric] = useState<Metric>("power");
   const [granularity, setGranularity] = useState<Granularity>("hour");
   const { data: series } = usePlugSeries(selected, { metric, granularity });
@@ -72,6 +79,11 @@ export function Plugs() {
               onClick={() => setSelected(plug.id)}
             >
               <span className="plug-item__name">{plug.name}</span>
+              {boostFor(plug.id) && (
+                <span className="boost-tag" title="Boost actiu">
+                  ⚡
+                </span>
+              )}
               <span className={plug.state ? "dot dot--on" : "dot"} />
             </button>
           ))}
@@ -120,6 +132,9 @@ export function Plugs() {
               )}
             </div>
           </div>
+          {selectedPlug && (
+            <BoostControl plugId={selectedPlug.id} boost={boostFor(selectedPlug.id)} />
+          )}
           {setPlugState.isError && (
             <p className="error-text">
               No s'ha pogut contactar amb el dispositiu.

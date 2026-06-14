@@ -1,6 +1,7 @@
-"""Smart-plug endpoints: device list, latest reading, and time series."""
+"""Smart-plug endpoints: device list, latest reading, boosts, and time series."""
 
 import datetime
+import logging
 from dataclasses import asdict
 from typing import Annotated
 
@@ -9,10 +10,15 @@ from sqlalchemy import select
 
 from falk.iot.tuya import Switch
 from falk.models.devices import SmartSwitch, SwitchMetric, TuyaSwitch
+from falk.models.planning import DeviceOverride
+from falk.overrides import clear_boost_for_switch, set_boost_for_switch, utc_now
 
 from ..aggregation import plug_heatmap, plug_statistics, plug_timeseries
 from ..deps import PlugSeriesQueryDep, SessionDep
 from ..schemas import (
+    BoostClearOut,
+    BoostIn,
+    BoostOut,
     HeatmapCell,
     HeatmapOut,
     PlugLatestOut,
@@ -23,7 +29,30 @@ from ..schemas import (
     TimeseriesOut,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/plugs", tags=["plugs"])
+
+
+def _actuate(plug: TuyaSwitch, on: bool) -> None:
+    """Drive a Tuya plug on/off over the LAN (blocking call).
+
+    Raises:
+        Exception: Propagates any tinytuya/LAN error so callers can decide how
+            to surface it.
+    """
+    assert plug.ip is not None, "callers must reject plugs without an IP"
+    switch = Switch(
+        id=plug.tuya_id,
+        name=plug.name,
+        ip=plug.ip,
+        local_key=plug.local_key,
+        version=plug.version,
+    )
+    if on:
+        switch.turn_on()
+    else:
+        switch.turn_off()
 
 
 @router.get("")
@@ -31,6 +60,89 @@ def list_plugs(session: SessionDep) -> list[PlugOut]:
     """List all smart plugs."""
     plugs = session.scalars(select(SmartSwitch)).all()
     return [PlugOut.model_validate(plug) for plug in plugs]
+
+
+def _boost_out(override: DeviceOverride, now: datetime.datetime) -> BoostOut:
+    """Build a BoostOut, computing the remaining seconds from ``now``."""
+    remaining = int((override.until_utc - now).total_seconds())
+    return BoostOut(
+        plug_id=override.switch_id,
+        desired_state=override.desired_state,
+        until=override.until_utc,
+        remaining_seconds=max(remaining, 0),
+    )
+
+
+@router.get("/boosts")
+def list_boosts(session: SessionDep) -> list[BoostOut]:
+    """List every currently active boost (one query for the whole dashboard)."""
+    now = utc_now()
+    overrides = session.scalars(
+        select(DeviceOverride).where(DeviceOverride.until_utc > now)
+    ).all()
+    return [_boost_out(override, now) for override in overrides]
+
+
+@router.post("/{plug_id}/boost")
+def start_boost(plug_id: int, body: BoostIn, session: SessionDep) -> BoostOut:
+    """Force a plug on/off for a duration, overriding the price plan.
+
+    The override is persisted first, then the plug is actuated immediately as a
+    best effort; if the LAN call fails the override still stands so the periodic
+    ``apply`` job retries and reverts it on expiry.
+    """
+    plug = session.get(TuyaSwitch, plug_id)
+    if plug is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"plug {plug_id} not found",
+        )
+    if plug.ip is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"plug {plug_id} has no IP configured",
+        )
+
+    now = utc_now()
+    until = set_boost_for_switch(
+        session,
+        plug.id,
+        desired_on=body.on,
+        duration=datetime.timedelta(minutes=body.duration_minutes),
+        now_utc=now,
+    )
+
+    try:
+        # Blocking LAN call; FastAPI runs this sync handler in a threadpool.
+        _actuate(plug, body.on)
+        plug.state = body.on
+    except Exception:
+        logger.warning(
+            "Boost saved for plug %s but immediate actuation failed; "
+            "apply will retry",
+            plug_id,
+            exc_info=True,
+        )
+
+    session.commit()
+    return _boost_out(
+        DeviceOverride(switch_id=plug.id, desired_state=body.on, until_utc=until),
+        now,
+    )
+
+
+@router.delete("/{plug_id}/boost")
+def clear_boost(plug_id: int, session: SessionDep) -> BoostClearOut:
+    """Cancel a plug's boost; the next ``apply`` resumes the price plan."""
+    plug = session.get(TuyaSwitch, plug_id)
+    if plug is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"plug {plug_id} not found",
+        )
+    cleared = clear_boost_for_switch(session, plug.id)
+    session.commit()
+    return BoostClearOut(plug_id=plug_id, cleared=cleared)
 
 
 @router.get("/{plug_id}/latest")
@@ -106,19 +218,9 @@ def set_plug_state(
             detail=f"plug {plug_id} has no IP configured",
         )
 
-    switch = Switch(
-        id=plug.tuya_id,
-        name=plug.name,
-        ip=plug.ip,
-        local_key=plug.local_key,
-        version=plug.version,
-    )
     try:
         # Blocking LAN call; FastAPI runs this sync handler in a threadpool.
-        if body.on:
-            switch.turn_on()
-        else:
-            switch.turn_off()
+        _actuate(plug, body.on)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

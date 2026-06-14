@@ -10,6 +10,7 @@ import type {
   Metric,
   PhaseSel,
   Plug,
+  PlugBoost,
   PlugLatest,
   PlugState,
   PlugStats,
@@ -31,6 +32,14 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!response.ok) {
+    throw new Error(`${path} → ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function del<T>(path: string): Promise<T> {
+  const response = await fetch(path, { method: "DELETE" });
   if (!response.ok) {
     throw new Error(`${path} → ${response.status}`);
   }
@@ -88,4 +97,12 @@ export const api = {
     get<PlugStats>(`/api/plugs/${id}/stats?window_days=${windowDays}`),
   plugSeries: (id: number, params: SeriesParams) =>
     get<Timeseries>(`/api/plugs/${id}/timeseries?${seriesQuery(params)}`),
+  listBoosts: () => get<PlugBoost[]>("/api/plugs/boosts"),
+  startBoost: (id: number, on: boolean, durationMinutes: number) =>
+    post<PlugBoost>(`/api/plugs/${id}/boost`, {
+      on,
+      duration_minutes: durationMinutes,
+    }),
+  clearBoost: (id: number) =>
+    del<{ plug_id: number; cleared: boolean }>(`/api/plugs/${id}/boost`),
 };

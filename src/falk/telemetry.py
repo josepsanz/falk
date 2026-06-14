@@ -7,10 +7,13 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from falk.config import DEVICES_FILE_ENV, load_config
+from falk.control import run_apply
 from falk.db import session_factory
 from falk.iot.tuya import Switch
 from falk.iot.shelly import EnergyMeter
 from falk.models import devices as db_devices
+from falk.overrides import DeviceNotFoundError, clear_boost, parse_duration, set_boost
+from falk.planning.scheduler import build_plan
 from falk.pricing.esios import save_day_prices
 
 LOGGER_NAME = 'falk.telemetry'
@@ -47,6 +50,25 @@ def get_arguments():
     pricing_parser.add_argument(
         '--date', type=datetime.date.fromisoformat, default=None,
         help='Day to fetch (YYYY-MM-DD). Defaults to today.',
+    )
+
+    plan_parser = subparsers.add_parser('plan', parents=[common], help='Compute and store the on/off plan from stored prices.')
+    plan_parser.add_argument(
+        '--date', type=datetime.date.fromisoformat, default=None,
+        help='Local day to plan (YYYY-MM-DD). Defaults to tomorrow.',
+    )
+
+    subparsers.add_parser('apply', parents=[common], help='Reconcile device state against the plan for the current hour.')
+
+    boost_parser = subparsers.add_parser('boost', parents=[common], help='Force a device ON/OFF for a duration, overriding the plan.')
+    boost_parser.add_argument('device', help='Device name or Tuya id.')
+    boost_group = boost_parser.add_mutually_exclusive_group(required=True)
+    boost_group.add_argument('--on', action='store_true', help='Force the device ON.')
+    boost_group.add_argument('--off', action='store_true', help='Force the device OFF.')
+    boost_group.add_argument('--clear', action='store_true', help='Clear any active boost.')
+    boost_parser.add_argument(
+        '--for', dest='duration', type=parse_duration, default=None,
+        help='Boost duration, e.g. 2h30m, 90m, 1h (required with --on/--off).',
     )
     return parser.parse_args()
 
@@ -136,6 +158,22 @@ def run_poll():
                 device_telemetry_fn = DEVICE_DISPATCHER[device['type']]
                 device_telemetry_fn(session, device)
 
+def run_boost(arguments):
+    try:
+        if arguments.clear:
+            removed = clear_boost(arguments.device)
+            logger.info("Boost cleared for %s" if removed else "No active boost for %s", arguments.device)
+            return
+
+        if arguments.duration is None:
+            raise SystemExit("--for is required with --on/--off")
+
+        until = set_boost(arguments.device, desired_on=arguments.on, duration=arguments.duration)
+        state = 'ON' if arguments.on else 'OFF'
+        logger.info("Boost %s for %s until %s UTC", state, arguments.device, f"{until:%Y-%m-%d %H:%M}")
+    except DeviceNotFoundError as error:
+        raise SystemExit(f"Unknown device: {error}")
+
 def main():
     arguments = get_arguments()
     level = logging.DEBUG if arguments.verbose else logging.INFO
@@ -147,8 +185,14 @@ def main():
         run_poll()
     elif arguments.command == 'pricing':
         save_day_prices(arguments.date)
+    elif arguments.command == 'plan':
+        build_plan(arguments.date)
+    elif arguments.command == 'apply':
+        run_apply()
+    elif arguments.command == 'boost':
+        run_boost(arguments)
 
-    logger.info(f"'{arguments.command}' metrics stored!")
+    logger.info(f"'{arguments.command}' command finished!")
 
 def add_switch_device(uri, name, ip, tuya_id, local_key, version):
     engine = create_engine(uri)

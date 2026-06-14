@@ -135,3 +135,40 @@ export function useSetPlugState() {
     },
   });
 }
+
+export function useBoosts() {
+  return useQuery({
+    queryKey: ["boosts"],
+    queryFn: api.listBoosts,
+    refetchInterval: 30_000,
+  });
+}
+
+function useBoostMutation<TArgs>(mutationFn: (args: TArgs) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plugs"] });
+      queryClient.invalidateQueries({ queryKey: ["boosts"] });
+    },
+  });
+}
+
+export function useStartBoost() {
+  return useBoostMutation(
+    ({
+      id,
+      on,
+      durationMinutes,
+    }: {
+      id: number;
+      on: boolean;
+      durationMinutes: number;
+    }) => api.startBoost(id, on, durationMinutes),
+  );
+}
+
+export function useClearBoost() {
+  return useBoostMutation(({ id }: { id: number }) => api.clearBoost(id));
+}
