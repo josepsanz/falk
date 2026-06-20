@@ -124,10 +124,10 @@ export function usePlugCostSeries(
   });
 }
 
-export function usePlugStats(plugId: number | undefined) {
+export function usePlugStats(plugId: number | undefined, windowDays = 30) {
   return useQuery({
-    queryKey: ["plug-stats", plugId],
-    queryFn: () => api.plugStats(plugId!),
+    queryKey: ["plug-stats", plugId, windowDays],
+    queryFn: () => api.plugStats(plugId!, windowDays),
     enabled: plugId !== undefined,
   });
 }

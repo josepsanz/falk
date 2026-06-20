@@ -6,7 +6,11 @@ import { CostChart } from "../components/CostChart";
 import { PlugHeatmap } from "../components/PlugHeatmap";
 import { PlugStatsPanel } from "../components/PlugStatsPanel";
 import { TimeSeriesChart } from "../components/TimeSeriesChart";
-import { GRANULARITY_OPTIONS, Segmented } from "../components/Controls";
+import {
+  GRANULARITY_OPTIONS,
+  METRIC_OPTIONS,
+  Segmented,
+} from "../components/Controls";
 import {
   useBoosts,
   usePlugCostSeries,
@@ -19,11 +23,11 @@ import {
 } from "../hooks";
 import { ACCENTS } from "../theme";
 
-// On this page the "energy" metric is shown as its € cost (energy × hourly
-// price), so the toggle reads in euros rather than kWh.
-const PLUG_METRIC_OPTIONS: { value: Metric; label: string }[] = [
-  { value: "power", label: "Potència (W)" },
-  { value: "energy", label: "Energia (€)" },
+// Period for the headline power/energy/cost summary (days back from now).
+const SUMMARY_WINDOW_OPTIONS = [
+  { value: "1", label: "Avui" },
+  { value: "7", label: "7 dies" },
+  { value: "30", label: "30 dies" },
 ];
 
 export function Plugs() {
@@ -46,8 +50,9 @@ export function Plugs() {
     );
   const [metric, setMetric] = useState<Metric>("power");
   const [granularity, setGranularity] = useState<Granularity>("hour");
-  // Energy is shown as cost in € (energy × hourly price), so only the power
-  // metric uses the plain power/energy series; energy fetches the cost series.
+  // The energy view shows consumption (kWh) bars alongside the hourly price
+  // (with cost in the tooltip), so it pulls the cost series rather than the
+  // plain energy series; only the power view uses the power series.
   const showCost = metric === "energy";
   const { data: series } = usePlugSeries(showCost ? undefined : selected, {
     metric,
@@ -59,6 +64,9 @@ export function Plugs() {
   );
   const { data: heatmap } = usePlugHeatmap(selected);
   const { data: stats } = usePlugStats(selected);
+
+  const [summaryWindow, setSummaryWindow] = useState("7");
+  const { data: summary } = usePlugStats(selected, Number(summaryWindow));
 
   // Energy can't be resolved finer than the sampling interval.
   const granularityOptions =
@@ -105,6 +113,48 @@ export function Plugs() {
         </aside>
 
         <div className="plug-main">
+          <section className="card">
+            <div className="card-head card-head--row">
+              <div>
+                <span className="card-eyebrow">Resum</span>
+                <h2>Potència, consum i cost</h2>
+              </div>
+              <Segmented
+                label=""
+                value={summaryWindow}
+                options={SUMMARY_WINDOW_OPTIONS}
+                onChange={setSummaryWindow}
+              />
+            </div>
+            {summary ? (
+              <div className="summary-grid">
+                <div className="summary-stat">
+                  <span className="summary-stat__label">Potència mitjana</span>
+                  <span className="summary-stat__value">
+                    {Math.round(summary.power_avg)}
+                    <small>W</small>
+                  </span>
+                </div>
+                <div className="summary-stat">
+                  <span className="summary-stat__label">Consum</span>
+                  <span className="summary-stat__value">
+                    {summary.energy_total_kwh.toFixed(2)}
+                    <small>kWh</small>
+                  </span>
+                </div>
+                <div className="summary-stat">
+                  <span className="summary-stat__label">Cost</span>
+                  <span className="summary-stat__value">
+                    {summary.cost_total_eur.toFixed(2)}
+                    <small>€</small>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="placeholder">Carregant resum…</div>
+            )}
+          </section>
+
           <section className="card series-card">
           <div className="plug-head">
             <h2>{selectedPlug?.name ?? "—"}</h2>
@@ -159,7 +209,7 @@ export function Plugs() {
             <Segmented
               label="Mètrica"
               value={metric}
-              options={PLUG_METRIC_OPTIONS}
+              options={METRIC_OPTIONS}
               onChange={handleMetric}
             />
             <Segmented
@@ -173,7 +223,7 @@ export function Plugs() {
             costSeries ? (
               <CostChart
                 series={costSeries}
-                valueKey="cost_eur"
+                valueKey="energy_kwh"
                 colorByPrice
                 hourOnly={granularity === "hour"}
               />
