@@ -111,6 +111,19 @@ export function usePlugSeries(
   });
 }
 
+export function usePlugCostSeries(
+  plugId: number | undefined,
+  granularity: Granularity,
+  from?: string,
+  to?: string,
+) {
+  return useQuery({
+    queryKey: ["plug-cost-series", plugId, granularity, from, to],
+    queryFn: () => api.plugCostSeries(plugId!, granularity, from, to),
+    enabled: plugId !== undefined,
+  });
+}
+
 export function usePlugStats(plugId: number | undefined) {
   return useQuery({
     queryKey: ["plug-stats", plugId],

@@ -148,6 +148,9 @@ class PlugStatsOut(BaseModel):
     energy_daily_avg_kwh: float
     energy_today_kwh: float
     energy_last7_kwh: float
+    cost_total_eur: float
+    cost_today_eur: float
+    cost_last7_eur: float
     forecast_next_day_kwh: float
     forecast_next_30d_kwh: float
     trend_pct: float | None = None
@@ -259,9 +262,14 @@ class CostPoint(BaseModel):
 
 
 class CostSeriesOut(BaseModel):
-    """Meter energy crossed with PVPC prices, bucketed, plus window totals."""
+    """Energy crossed with PVPC prices, bucketed, plus window totals.
 
-    meter_id: int
+    Carries either a ``meter_id`` (meter-level cost) or a ``plug_id``
+    (per-device cost); the other is null.
+    """
+
+    meter_id: int | None = None
+    plug_id: int | None = None
     granularity: Granularity
     points: list[CostPoint]
     total_energy_kwh: float

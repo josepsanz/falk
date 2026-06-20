@@ -104,6 +104,17 @@ export const api = {
     get<PlugStats>(`/api/plugs/${id}/stats?window_days=${windowDays}`),
   plugSeries: (id: number, params: SeriesParams) =>
     get<Timeseries>(`/api/plugs/${id}/timeseries?${seriesQuery(params)}`),
+  plugCostSeries: (
+    id: number,
+    granularity: Granularity,
+    from?: string,
+    to?: string,
+  ) =>
+    get<CostSeries>(
+      `/api/plugs/${id}/cost-series?granularity=${granularity}` +
+        (from ? `&from=${encodeURIComponent(from)}` : "") +
+        (to ? `&to=${encodeURIComponent(to)}` : ""),
+    ),
   listBoosts: () => get<PlugBoost[]>("/api/plugs/boosts"),
   startBoost: (id: number, on: boolean, durationMinutes: number) =>
     post<PlugBoost>(`/api/plugs/${id}/boost`, {

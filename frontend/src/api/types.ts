@@ -105,6 +105,9 @@ export interface PlugStats {
   energy_daily_avg_kwh: number;
   energy_today_kwh: number;
   energy_last7_kwh: number;
+  cost_total_eur: number;
+  cost_today_eur: number;
+  cost_last7_eur: number;
   forecast_next_day_kwh: number;
   forecast_next_30d_kwh: number;
   trend_pct: number | null;
@@ -165,7 +168,8 @@ export interface CostPoint {
 }
 
 export interface CostSeries {
-  meter_id: number;
+  meter_id?: number;
+  plug_id?: number;
   granularity: Granularity;
   points: CostPoint[];
   total_energy_kwh: number;

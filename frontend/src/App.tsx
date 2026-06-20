@@ -26,7 +26,7 @@ export function App() {
           Cost
         </NavLink>
         <NavLink to="/plugs" className="navlink">
-          Endolls
+          Dispositius
         </NavLink>
         <NavLink
           to="/settings"

@@ -397,7 +397,38 @@ def meter_cost_series(
     granularity: Granularity,
     time_range: TimeRange,
 ) -> CostSeries:
-    """Cross the meter's energy with hourly PVPC prices into a cost series.
+    """Cross the meter's energy with hourly PVPC prices into a cost series."""
+    hourly_energy = _meter_energy_rows(
+        session, meter_id, PhaseSel.total, Granularity.hour, time_range
+    )
+    prices = _hourly_prices(session, time_range)
+    return _cross_energy_with_prices(hourly_energy, prices, granularity, time_range)
+
+
+def plug_cost_series(
+    session: Session,
+    plug_id: int,
+    *,
+    granularity: Granularity,
+    time_range: TimeRange,
+) -> CostSeries:
+    """Cross a plug's estimated energy with hourly PVPC prices into a cost series.
+
+    The plug has no cumulative energy counter, so hourly energy is approximated
+    as Σ power × sampling interval — the same basis as the plug time series.
+    """
+    hourly_energy = _plug_energy_rows(session, plug_id, time_range)
+    prices = _hourly_prices(session, time_range)
+    return _cross_energy_with_prices(hourly_energy, prices, granularity, time_range)
+
+
+def _cross_energy_with_prices(
+    hourly_energy: dict[str, float],
+    prices: dict[str, float],
+    granularity: Granularity,
+    time_range: TimeRange,
+) -> CostSeries:
+    """Cross hourly energy (kWh) with hourly PVPC prices into a cost series.
 
     Cost is computed at hourly resolution (energy × price) — the granularity at
     which the price is defined — then rolled up to the requested bucket size. A
@@ -405,11 +436,6 @@ def meter_cost_series(
     hourly granularity it equals the PVPC price; falling back to a plain mean for
     buckets that consumed nothing, so the price line still renders.
     """
-    hourly_energy = _meter_energy_rows(
-        session, meter_id, PhaseSel.total, Granularity.hour, time_range
-    )
-    prices = _hourly_prices(session, time_range)
-
     energy_by_bucket: dict[str, float] = defaultdict(float)
     cost_by_bucket: dict[str, float] = defaultdict(float)
     priced_energy_by_bucket: dict[str, float] = defaultdict(float)
@@ -610,9 +636,37 @@ class PlugStatistics:
     energy_daily_avg_kwh: float
     energy_today_kwh: float
     energy_last7_kwh: float
+    cost_total_eur: float
+    cost_today_eur: float
+    cost_last7_eur: float
     forecast_next_day_kwh: float
     forecast_next_30d_kwh: float
     trend_pct: float | None
+
+
+def _cost_breakdown(
+    energy_per_hour: dict[str, float],
+    prices: dict[str, float],
+    today: datetime.date,
+) -> tuple[float, float, float]:
+    """Total, today's and last-7-day cost (€) from hourly energy and prices.
+
+    Hours without a published price contribute no cost.
+    """
+    last7_cutoff = today - datetime.timedelta(days=7)
+    total = today_cost = last7 = 0.0
+    for label, kwh in energy_per_hour.items():
+        price = prices.get(label)
+        if price is None:
+            continue
+        cost = kwh * price
+        total += cost
+        day = datetime.datetime.strptime(label, _HOUR_FORMAT).date()
+        if day == today:
+            today_cost += cost
+        if day > last7_cutoff:
+            last7 += cost
+    return total, today_cost, last7
 
 
 def plug_statistics(
@@ -650,12 +704,17 @@ def plug_statistics(
     active_ratio = sum(p > _ACTIVE_THRESHOLD_W for p in powers) / sample_count
 
     energy_per_day: dict[datetime.date, float] = defaultdict(float)
+    energy_per_hour: dict[str, float] = defaultdict(float)
     for recorded_at, power in rows:
-        energy_per_day[recorded_at.date()] += (
-            float(power) * _PLUG_SAMPLE_INTERVAL_HOURS / _WH_PER_KWH
-        )
+        kwh = float(power) * _PLUG_SAMPLE_INTERVAL_HOURS / _WH_PER_KWH
+        energy_per_day[recorded_at.date()] += kwh
+        energy_per_hour[recorded_at.strftime(_HOUR_FORMAT)] += kwh
 
     today = now.date()
+    prices = _hourly_prices(session, TimeRange(start=start, end=now))
+    cost_total, cost_today, cost_last7 = _cost_breakdown(
+        energy_per_hour, prices, today
+    )
     daily_values = list(energy_per_day.values())
     total_kwh = sum(daily_values)
     daily_avg = total_kwh / len(daily_values)
@@ -691,6 +750,9 @@ def plug_statistics(
         energy_daily_avg_kwh=round(daily_avg, 3),
         energy_today_kwh=round(energy_per_day.get(today, 0.0), 3),
         energy_last7_kwh=round(sum(recent7), 3),
+        cost_total_eur=round(cost_total, 3),
+        cost_today_eur=round(cost_today, 3),
+        cost_last7_eur=round(cost_last7, 3),
         forecast_next_day_kwh=round(recent7_avg, 3),
         forecast_next_30d_kwh=round(recent7_avg * 30, 3),
         trend_pct=round(trend_pct, 1) if trend_pct is not None else None,
@@ -783,6 +845,31 @@ def _meter_power_rows(
             time_range,
         )
     return _run(session, stmt.group_by("bucket").order_by("bucket"))
+
+
+def _plug_energy_rows(
+    session: Session, plug_id: int, time_range: TimeRange
+) -> dict[str, float]:
+    """Estimated plug energy (kWh) per hour, keyed by hour label.
+
+    The plug exposes only instantaneous power, so energy is Σ power × sampling
+    interval over each hour — the same approximation as the plug time series.
+    """
+    bucket = _bucket_label(SwitchMetric.recorded_at, Granularity.hour)
+    energy = func.sum(SwitchMetric.power) * (
+        _PLUG_SAMPLE_INTERVAL_HOURS / _WH_PER_KWH
+    )
+    stmt = (
+        select(bucket.label("bucket"), energy)
+        .where(
+            SwitchMetric.switch_id == plug_id,
+            SwitchMetric.recorded_at >= time_range.start,
+            SwitchMetric.recorded_at < time_range.end,
+        )
+        .group_by("bucket")
+        .order_by("bucket")
+    )
+    return _run(session, stmt)
 
 
 def _meter_energy_rows(

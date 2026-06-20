@@ -13,12 +13,19 @@ from falk.models.devices import SmartSwitch, SwitchMetric, TuyaSwitch
 from falk.models.planning import DeviceOverride
 from falk.overrides import clear_boost_for_switch, set_boost_for_switch, utc_now
 
-from ..aggregation import plug_heatmap, plug_statistics, plug_timeseries
-from ..deps import PlugSeriesQueryDep, SessionDep
+from ..aggregation import (
+    plug_cost_series,
+    plug_heatmap,
+    plug_statistics,
+    plug_timeseries,
+)
+from ..deps import DeviceSeriesQueryDep, PlugSeriesQueryDep, SessionDep
 from ..schemas import (
     BoostClearOut,
     BoostIn,
     BoostOut,
+    CostPoint,
+    CostSeriesOut,
     HeatmapCell,
     HeatmapOut,
     PlugLatestOut,
@@ -250,4 +257,33 @@ def plug_series(
         unit=unit,
         plug_id=plug_id,
         points=points,
+    )
+
+
+@router.get("/{plug_id}/cost-series")
+def plug_cost(
+    plug_id: int, query: DeviceSeriesQueryDep, session: SessionDep
+) -> CostSeriesOut:
+    """Return the plug's estimated energy crossed with hourly PVPC prices."""
+    series = plug_cost_series(
+        session,
+        plug_id,
+        granularity=query.granularity,
+        time_range=query.time_range,
+    )
+    return CostSeriesOut(
+        plug_id=plug_id,
+        granularity=query.granularity,
+        points=[
+            CostPoint(
+                bucket=point.bucket,
+                energy_kwh=point.energy_kwh,
+                price_kwh=point.price_kwh,
+                cost_eur=point.cost_eur,
+            )
+            for point in series.points
+        ],
+        total_energy_kwh=series.total_energy_kwh,
+        total_cost_eur=series.total_cost_eur,
+        avg_price_kwh=series.avg_price_kwh,
     )

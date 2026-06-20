@@ -69,6 +69,23 @@ export function PlugStatsPanel({ data }: { data: PlugStats }) {
       </div>
 
       <div className="stats__group">
+        <h3>Cost</h3>
+        <div className="stat-grid">
+          <Stat label="Avui" value={data.cost_today_eur.toFixed(2)} unit="€" />
+          <Stat
+            label="Últims 7 dies"
+            value={data.cost_last7_eur.toFixed(2)}
+            unit="€"
+          />
+          <Stat
+            label={`Total (${data.window_days}d)`}
+            value={data.cost_total_eur.toFixed(2)}
+            unit="€"
+          />
+        </div>
+      </div>
+
+      <div className="stats__group">
         <h3>Previsió</h3>
         <div className="stat-grid">
           <Stat
@@ -93,8 +110,9 @@ export function PlugStatsPanel({ data }: { data: PlugStats }) {
       </div>
 
       <p className="stats__note">
-        Energia estimada (potència × interval de mostreig). Previsió = mitjana
-        diària dels últims 7 dies; tendència = últims 7 dies vs els 7 anteriors.
+        Energia estimada (potència × interval de mostreig); cost = energia
+        estimada × preu PVPC horari. Previsió = mitjana diària dels últims 7
+        dies; tendència = últims 7 dies vs els 7 anteriors.
       </p>
     </div>
   );

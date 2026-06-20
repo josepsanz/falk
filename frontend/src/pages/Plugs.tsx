@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { Granularity, Metric } from "../api/types";
 import { BoostControl } from "../components/BoostControl";
+import { CostChart } from "../components/CostChart";
 import { PlugHeatmap } from "../components/PlugHeatmap";
 import { PlugStatsPanel } from "../components/PlugStatsPanel";
 import { TimeSeriesChart } from "../components/TimeSeriesChart";
@@ -12,6 +13,7 @@ import {
 } from "../components/Controls";
 import {
   useBoosts,
+  usePlugCostSeries,
   usePlugHeatmap,
   usePlugLatest,
   usePlugSeries,
@@ -20,6 +22,23 @@ import {
   useSetPlugState,
 } from "../hooks";
 import { ACCENTS } from "../theme";
+
+// Hourly cost windows — kept at hourly resolution (like the Cost page) so the
+// price line and its gradient stay meaningful per hour.
+const COST_WINDOW_OPTIONS = [
+  { value: "2", label: "2 dies" },
+  { value: "7", label: "7 dies" },
+  { value: "30", label: "30 dies" },
+];
+
+function localMidnightIso(offsetDays = 0): string {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}T00:00:00`;
+}
 
 export function Plugs() {
   const { data: plugs } = usePlugs();
@@ -45,6 +64,15 @@ export function Plugs() {
   const { data: heatmap } = usePlugHeatmap(selected);
   const { data: stats } = usePlugStats(selected);
 
+  const [costWindow, setCostWindow] = useState("7");
+  const costDays = Number(costWindow);
+  const { data: costSeries } = usePlugCostSeries(
+    selected,
+    "hour",
+    localMidnightIso(-(costDays - 1)),
+    localMidnightIso(1),
+  );
+
   // Energy can't be resolved finer than the sampling interval.
   const granularityOptions =
     metric === "energy"
@@ -62,7 +90,7 @@ export function Plugs() {
     <div className="page">
       <header className="page__head">
         <div>
-          <h1>Endolls</h1>
+          <h1>Dispositius</h1>
           <p className="muted">Consum per aparell</p>
         </div>
       </header>
@@ -159,6 +187,26 @@ export function Plugs() {
           ) : (
             <div className="placeholder">Carregant sèrie…</div>
           )}
+          </section>
+
+          <section className="card series-card">
+            <div className="card-head card-head--row">
+              <div>
+                <span className="card-eyebrow">Cost</span>
+                <h2>Cost per hora segons el preu</h2>
+              </div>
+              <Segmented
+                label=""
+                value={costWindow}
+                options={COST_WINDOW_OPTIONS}
+                onChange={setCostWindow}
+              />
+            </div>
+            {costSeries ? (
+              <CostChart series={costSeries} valueKey="cost_eur" colorByPrice />
+            ) : (
+              <div className="placeholder">Carregant cost…</div>
+            )}
           </section>
 
           <section className="card heatmap-card">
