@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type { Granularity, Metric } from "../api/types";
+import type { Granularity, Metric, Plug } from "../api/types";
 import { BoostControl } from "../components/BoostControl";
 import { CostChart } from "../components/CostChart";
 import { PlugHeatmap } from "../components/PlugHeatmap";
@@ -66,7 +66,6 @@ export function Plugs() {
   const { data: stats } = usePlugStats(selected);
 
   const [summaryWindow, setSummaryWindow] = useState("7");
-  const { data: summary } = usePlugStats(selected, Number(summaryWindow));
 
   // Energy can't be resolved finer than the sampling interval.
   const granularityOptions =
@@ -90,71 +89,34 @@ export function Plugs() {
         </div>
       </header>
 
-      <div className="plugs-layout">
-        <aside className="card plug-list">
+      <section className="card">
+        <div className="card-head card-head--row">
+          <div>
+            <span className="card-eyebrow">Resum per dispositiu</span>
+            <h2>Potència, energia i cost</h2>
+          </div>
+          <Segmented
+            label=""
+            value={summaryWindow}
+            options={SUMMARY_WINDOW_OPTIONS}
+            onChange={setSummaryWindow}
+          />
+        </div>
+        <div className="device-kpi-grid">
           {(plugs ?? []).map((plug) => (
-            <button
+            <DeviceKpiCard
               key={plug.id}
-              type="button"
-              className={
-                plug.id === selected ? "plug-item is-active" : "plug-item"
-              }
-              onClick={() => setSelected(plug.id)}
-            >
-              <span className="plug-item__name">{plug.name}</span>
-              {boostFor(plug.id) && (
-                <span className="boost-tag" title="Boost actiu">
-                  ⚡
-                </span>
-              )}
-              <span className={plug.state ? "dot dot--on" : "dot"} />
-            </button>
+              plug={plug}
+              windowDays={Number(summaryWindow)}
+              active={plug.id === selected}
+              boosted={Boolean(boostFor(plug.id))}
+              onSelect={() => setSelected(plug.id)}
+            />
           ))}
-        </aside>
+        </div>
+      </section>
 
-        <div className="plug-main">
-          <section className="card">
-            <div className="card-head card-head--row">
-              <div>
-                <span className="card-eyebrow">Resum</span>
-                <h2>Potència, consum i cost</h2>
-              </div>
-              <Segmented
-                label=""
-                value={summaryWindow}
-                options={SUMMARY_WINDOW_OPTIONS}
-                onChange={setSummaryWindow}
-              />
-            </div>
-            {summary ? (
-              <div className="summary-grid">
-                <div className="summary-stat">
-                  <span className="summary-stat__label">Potència mitjana</span>
-                  <span className="summary-stat__value">
-                    {Math.round(summary.power_avg)}
-                    <small>W</small>
-                  </span>
-                </div>
-                <div className="summary-stat">
-                  <span className="summary-stat__label">Consum</span>
-                  <span className="summary-stat__value">
-                    {summary.energy_total_kwh.toFixed(2)}
-                    <small>kWh</small>
-                  </span>
-                </div>
-                <div className="summary-stat">
-                  <span className="summary-stat__label">Cost</span>
-                  <span className="summary-stat__value">
-                    {summary.cost_total_eur.toFixed(2)}
-                    <small>€</small>
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="placeholder">Carregant resum…</div>
-            )}
-          </section>
-
+      <div className="plug-main">
           <section className="card series-card">
           <div className="plug-head">
             <h2>{selectedPlug?.name ?? "—"}</h2>
@@ -224,6 +186,7 @@ export function Plugs() {
               <CostChart
                 series={costSeries}
                 valueKey="energy_kwh"
+                secondaryValueKey="cost_eur"
                 colorByPrice
                 hourOnly={granularity === "hour"}
               />
@@ -262,8 +225,61 @@ export function Plugs() {
               <div className="placeholder">Carregant estadístiques…</div>
             )}
           </section>
-        </div>
       </div>
     </div>
+  );
+}
+
+function DeviceKpiCard({
+  plug,
+  windowDays,
+  active,
+  boosted,
+  onSelect,
+}: {
+  plug: Plug;
+  windowDays: number;
+  active: boolean;
+  boosted: boolean;
+  onSelect: () => void;
+}) {
+  const { data } = usePlugStats(plug.id, windowDays);
+  const metric = (value: string, unit: string) => (
+    <span className="device-kpi__value">
+      {data ? value : "—"}
+      <small>{unit}</small>
+    </span>
+  );
+
+  return (
+    <button
+      type="button"
+      className={active ? "device-kpi is-active" : "device-kpi"}
+      onClick={onSelect}
+    >
+      <div className="device-kpi__head">
+        <span className="device-kpi__name">{plug.name}</span>
+        {boosted && (
+          <span className="boost-tag" title="Boost actiu">
+            ⚡
+          </span>
+        )}
+        <span className={plug.state ? "dot dot--on" : "dot"} />
+      </div>
+      <div className="device-kpi__metrics">
+        <div className="device-kpi__metric">
+          <span className="device-kpi__label">Potència</span>
+          {metric(data ? `${Math.round(data.power_avg)}` : "", "W")}
+        </div>
+        <div className="device-kpi__metric">
+          <span className="device-kpi__label">Energia</span>
+          {metric(data ? data.energy_total_kwh.toFixed(2) : "", "kWh")}
+        </div>
+        <div className="device-kpi__metric">
+          <span className="device-kpi__label">Cost</span>
+          {metric(data ? data.cost_total_eur.toFixed(2) : "", "€")}
+        </div>
+      </div>
+    </button>
   );
 }

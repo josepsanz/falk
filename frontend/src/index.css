@@ -892,53 +892,92 @@ body::after {
   line-height: 1.5;
 }
 
-/* Prominent headline stats (power / energy / cost) above the device charts. */
-.summary-grid {
+/* Per-device KPI cards (power / energy / cost) — overview + device selector. */
+.device-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 14px;
   margin-top: 16px;
 }
 
-.summary-stat {
+.device-kpi {
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   background: rgba(4, 7, 10, 0.6);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.device-kpi:hover {
+  border-color: rgba(0, 230, 118, 0.4);
+}
+
+.device-kpi.is-active {
+  border-color: var(--green);
+  background: rgba(0, 230, 118, 0.06);
+}
+
+.device-kpi__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.device-kpi__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-kpi__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
-.summary-stat__label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  font-weight: 600;
+.device-kpi__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
-.summary-stat__value {
+.device-kpi__label {
   font-family: var(--font-mono);
-  font-size: 34px;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.device-kpi__value {
+  font-family: var(--font-mono);
+  font-size: 19px;
   font-weight: 700;
   color: var(--green);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
-.summary-stat__value small {
-  font-size: 14px;
+.device-kpi__value small {
+  font-size: 10px;
   font-weight: 500;
   color: var(--text-dim);
-  margin-left: 4px;
-}
-
-@media (max-width: 560px) {
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
+  margin-left: 2px;
 }
 
 .plug-list {

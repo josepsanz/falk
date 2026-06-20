@@ -15,10 +15,14 @@ interface CostChartProps {
   // When provided, split each energy bar into a stacked per-device breakdown
   // (plus an "unassigned" slice) instead of a single aggregate bar.
   breakdown?: DeviceSeries;
+  // Optional second bar series (e.g. cost € alongside energy kWh), drawn on
+  // its own right-hand axis. Ignored in breakdown mode.
+  secondaryValueKey?: "energy_kwh" | "cost_eur";
 }
 
 const MONO = "JetBrains Mono, monospace";
 const BAR_ACCENT = ACCENTS.total;
+const SECONDARY_BAR_ACCENT = "#60a5fa";
 const PRICE_ACCENT = "#fbbf24";
 const PRICE_AREA_ALPHA = 0.18;
 
@@ -92,6 +96,7 @@ export function CostChart({
   hourOnly,
   colorByPrice,
   breakdown,
+  secondaryValueKey,
 }: CostChartProps) {
   const { unit, label } = VALUE_META[valueKey];
 
@@ -102,6 +107,21 @@ export function CostChart({
     const priceArea = colorByPrice ? priceAreaGradient(prices) : undefined;
 
     const split = breakdown ? alignDevices(series, breakdown) : undefined;
+    // Second bar series (its own axis at index 2) — only outside breakdown mode.
+    const secondary =
+      secondaryValueKey && !split ? VALUE_META[secondaryValueKey] : null;
+    const secondaryBar = secondary
+      ? {
+          name: secondary.label,
+          type: "bar" as const,
+          yAxisIndex: 2,
+          data: series.points.map((p) => p[secondaryValueKey!]),
+          itemStyle: {
+            color: SECONDARY_BAR_ACCENT,
+            borderRadius: [3, 3, 0, 0] as [number, number, number, number],
+          },
+        }
+      : null;
     const barSeries = split
       ? [
           ...split.devices.map((d, i) => ({
@@ -143,11 +163,11 @@ export function CostChart({
           ...(split.hasUnassigned ? ["Sense assignar"] : []),
           "Preu",
         ]
-      : [label, "Preu"];
+      : [label, ...(secondary ? [secondary.label] : []), "Preu"];
 
     return {
       textStyle: { fontFamily: MONO },
-      grid: { left: 60, right: 56, top: 52, bottom: 60 },
+      grid: { left: 60, right: secondary ? 96 : 56, top: 52, bottom: 60 },
       legend: {
         type: "scroll",
         data: legendData,
@@ -239,6 +259,27 @@ export function CostChart({
           splitLine: { show: false },
           axisLabel: { color: "#9a8a4a", fontFamily: MONO, fontSize: 10.5 },
         },
+        ...(secondary
+          ? [
+              {
+                type: "value" as const,
+                name: secondary.unit,
+                position: "right" as const,
+                offset: 56,
+                nameTextStyle: {
+                  color: "#4a6a86",
+                  fontFamily: MONO,
+                  fontSize: 10.5,
+                },
+                splitLine: { show: false },
+                axisLabel: {
+                  color: "#7fa6cc",
+                  fontFamily: MONO,
+                  fontSize: 10.5,
+                },
+              },
+            ]
+          : []),
       ],
       dataZoom: [
         { type: "inside" },
@@ -260,6 +301,7 @@ export function CostChart({
       ],
       series: [
         ...barSeries,
+        ...(secondaryBar ? [secondaryBar] : []),
         {
           name: "Preu",
           type: "line",
@@ -282,7 +324,16 @@ export function CostChart({
         },
       ],
     };
-  }, [series, valueKey, unit, label, hourOnly, colorByPrice, breakdown]);
+  }, [
+    series,
+    valueKey,
+    unit,
+    label,
+    hourOnly,
+    colorByPrice,
+    breakdown,
+    secondaryValueKey,
+  ]);
 
   return (
     <ReactEChartsCore
