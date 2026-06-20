@@ -158,7 +158,7 @@ export function Cost() {
               series={todayTrimmed}
               valueKey="energy_kwh"
               hourOnly
-              colorByPrice={!breakdown}
+              colorByPrice
               breakdown={breakdown ? todayDevices : undefined}
             />
           </>
