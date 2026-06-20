@@ -6,11 +6,7 @@ import { CostChart } from "../components/CostChart";
 import { PlugHeatmap } from "../components/PlugHeatmap";
 import { PlugStatsPanel } from "../components/PlugStatsPanel";
 import { TimeSeriesChart } from "../components/TimeSeriesChart";
-import {
-  GRANULARITY_OPTIONS,
-  METRIC_OPTIONS,
-  Segmented,
-} from "../components/Controls";
+import { GRANULARITY_OPTIONS, Segmented } from "../components/Controls";
 import {
   useBoosts,
   usePlugCostSeries,
@@ -23,22 +19,12 @@ import {
 } from "../hooks";
 import { ACCENTS } from "../theme";
 
-// Hourly cost windows — kept at hourly resolution (like the Cost page) so the
-// price line and its gradient stay meaningful per hour.
-const COST_WINDOW_OPTIONS = [
-  { value: "2", label: "2 dies" },
-  { value: "7", label: "7 dies" },
-  { value: "30", label: "30 dies" },
+// On this page the "energy" metric is shown as its € cost (energy × hourly
+// price), so the toggle reads in euros rather than kWh.
+const PLUG_METRIC_OPTIONS: { value: Metric; label: string }[] = [
+  { value: "power", label: "Potència (W)" },
+  { value: "energy", label: "Energia (€)" },
 ];
-
-function localMidnightIso(offsetDays = 0): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}T00:00:00`;
-}
 
 export function Plugs() {
   const { data: plugs } = usePlugs();
@@ -60,18 +46,19 @@ export function Plugs() {
     );
   const [metric, setMetric] = useState<Metric>("power");
   const [granularity, setGranularity] = useState<Granularity>("hour");
-  const { data: series } = usePlugSeries(selected, { metric, granularity });
+  // Energy is shown as cost in € (energy × hourly price), so only the power
+  // metric uses the plain power/energy series; energy fetches the cost series.
+  const showCost = metric === "energy";
+  const { data: series } = usePlugSeries(showCost ? undefined : selected, {
+    metric,
+    granularity,
+  });
+  const { data: costSeries } = usePlugCostSeries(
+    showCost ? selected : undefined,
+    granularity,
+  );
   const { data: heatmap } = usePlugHeatmap(selected);
   const { data: stats } = usePlugStats(selected);
-
-  const [costWindow, setCostWindow] = useState("7");
-  const costDays = Number(costWindow);
-  const { data: costSeries } = usePlugCostSeries(
-    selected,
-    "hour",
-    localMidnightIso(-(costDays - 1)),
-    localMidnightIso(1),
-  );
 
   // Energy can't be resolved finer than the sampling interval.
   const granularityOptions =
@@ -172,7 +159,7 @@ export function Plugs() {
             <Segmented
               label="Mètrica"
               value={metric}
-              options={METRIC_OPTIONS}
+              options={PLUG_METRIC_OPTIONS}
               onChange={handleMetric}
             />
             <Segmented
@@ -182,31 +169,22 @@ export function Plugs() {
               onChange={setGranularity}
             />
           </div>
-          {series ? (
+          {showCost ? (
+            costSeries ? (
+              <CostChart
+                series={costSeries}
+                valueKey="cost_eur"
+                colorByPrice
+                hourOnly={granularity === "hour"}
+              />
+            ) : (
+              <div className="placeholder">Carregant cost…</div>
+            )
+          ) : series ? (
             <TimeSeriesChart series={series} accent={ACCENTS.l2} />
           ) : (
             <div className="placeholder">Carregant sèrie…</div>
           )}
-          </section>
-
-          <section className="card series-card">
-            <div className="card-head card-head--row">
-              <div>
-                <span className="card-eyebrow">Cost</span>
-                <h2>Cost per hora segons el preu</h2>
-              </div>
-              <Segmented
-                label=""
-                value={costWindow}
-                options={COST_WINDOW_OPTIONS}
-                onChange={setCostWindow}
-              />
-            </div>
-            {costSeries ? (
-              <CostChart series={costSeries} valueKey="cost_eur" colorByPrice />
-            ) : (
-              <div className="placeholder">Carregant cost…</div>
-            )}
           </section>
 
           <section className="card heatmap-card">
